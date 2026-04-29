@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教育訓練簽到系統 | 偉勝乾燥工業</title>
+  
+  <!-- 引入 Tailwind CSS (負責畫面排版與美化) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 自訂列印與動畫樣式 -->
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #printable-area, #printable-area * { visibility: visible; }
+      #printable-area { 
+        position: absolute; left: 0; top: 0; 
+        width: 100% !important; margin: 0 !important; padding: 0 !important; 
+        border: none !important; box-shadow: none !important; 
+      }
+      .no-print { display: none !important; }
+      @page { size: A4 portrait; margin: 15mm; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans relative min-h-screen">
+
+  <!-- 頂部狀態列 -->
+  <div id="top-bar" class="bg-gray-900 text-white p-2 text-xs flex justify-between items-center z-50 sticky top-0 no-print shadow-md hidden">
+    <div class="font-bold flex items-center gap-2">
+      <span class="bg-green-600 px-2 py-1 rounded shadow-sm">🟢 雲端同步系統已啟用</span>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="window.switchView('view-admin-list')" class="px-4 py-1.5 rounded font-bold transition shadow-sm bg-gray-700 hover:bg-gray-600">返回管理後台</button>
+    </div>
+  </div>
+
+  <!-- 全域提示訊息 -->
+  <div id="notification" class="fixed top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-8 py-4 rounded-full shadow-2xl font-bold transition-all duration-300 z-[9999] no-print border-2 border-green-500 flex items-center gap-3 opacity-0 pointer-events-none translate-y-[-20px]">
+    <span class="text-xl">✅</span> <span id="notification-text">訊息</span>
+  </div>
+
+  <!-- ==================== 1. 載入中畫面 ==================== -->
+  <div id="view-loading" class="app-view min-h-screen flex items-center justify-center">
+    <div class="bg-white p-10 rounded-2xl shadow-xl border-t-4 border-blue-600 text-center flex flex-col items-center">
+      <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <h2 class="text-2xl font-bold text-gray-800">系統啟動中...</h2>
+      <p class="text-gray-500 mt-2 font-medium">正在建立企業級雲端加密連線</p>
+    </div>
+  </div>
+
+  <!-- ==================== 2. 管理員登入畫面 ==================== -->
+  <div id="view-login" class="app-view hidden min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 relative">
+    <div class="mb-10 text-center flex flex-col items-center animate-fade-in">
+      <img id="login-logo" src="" alt="Logo" class="w-32 h-32 mb-4 object-contain" />
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800 tracking-[0.2em] font-serif">偉勝乾燥工業股份有限公司</h1>
+      <h2 class="text-lg md:text-xl text-gray-500 mt-2 font-serif font-bold tracking-widest">WEISUN INDUSTRIAL CO., LTD.</h2>
+    </div>
+    <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border-t-4 border-blue-800">
+      <div class="text-center mb-6 border-b pb-4">
+        <h2 class="text-2xl font-black text-gray-800">教育訓練管理員登入</h2>
+        <p class="text-sm text-gray-500 mt-2">請輸入管理密碼以存取後台</p>
+      </div>
+      <form onsubmit="window.handleLogin(event)">
+        <div class="mb-6">
+          <input type="password" id="login-password" placeholder="請輸入密碼..." required class="w-full border-2 border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-blue-600 outline-none text-center tracking-widest text-xl font-bold bg-gray-50" />
+        </div>
+        <button type="submit" class="w-full bg-blue-800 text-white font-bold text-lg py-3 rounded-lg hover:bg-blue-900 transition shadow-lg active:scale-95">驗證並登入</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== 3. 管理後台 - 課程列表 ==================== -->
+  <div id="view-admin-list" class="app-view hidden max-w-6xl mx-auto p-6 animate-fade-in">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b pb-4 gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800">偉勝乾燥工業 - 雲端教育訓練系統</h1>
+        <p class="text-gray-500 mt-1">即時同步管理課程、生成邀請函與檢視簽到名冊</p>
+      </div>
+      <div class="flex flex-wrap gap-3 items-center">
+        <button onclick="window.toggleSettings(true)" class="text-sm bg-indigo-50 text-indigo-700 font-bold px-4 py-2 rounded-lg hover:bg-indigo-100 transition flex items-center gap-1 border border-indigo-200 shadow-sm">⚙️ 系統設定</button>
+        <button onclick="window.handleLogout()" class="text-sm bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-lg hover:bg-gray-300 transition shadow-sm">登出管理員</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- 新增/編輯表單 -->
+      <div id="course-form-container" class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg border-t-4 border-blue-600 h-fit transition-all duration-300">
+        <h2 id="course-form-title" class="text-xl font-black mb-6 flex items-center gap-2 text-blue-800">
+          <span class="text-2xl">✨</span>新增教育訓練課程
+        </h2>
+        <form onsubmit="window.handleSaveCourse(event)" class="space-y-5">
+          <input type="hidden" id="form-course-id" />
+          <div><label class="block text-sm font-bold text-gray-700 mb-1">課程名稱</label><input type="text" id="form-name" required class="w-full border border-gray-300 rounded-lg p-3 outline-none" /></div>
+          <div><label class="block text-sm font-bold text-gray-700 mb-1">講師</label><input type="text" id="form-lecturer" required class="w-full border border-gray-300 rounded-lg p-3 outline-none" /></div>
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 shadow-inner">
+            <label class="block text-sm font-black text-blue-900 mb-2">📅 上課日期</label>
+            <input type="date" id="form-date" onchange="window.calcHours()" required class="w-full border border-blue-300 rounded-lg p-3 text-lg font-bold outline-none mb-4" />
+            <div class="grid grid-cols-2 gap-4">
+              <div><label class="block text-sm font-black text-blue-900 mb-1">⏰ 開始時間</label><input type="time" id="form-start-time" onchange="window.calcHours()" required class="w-full border border-blue-300 rounded-lg p-3 text-lg font-bold outline-none" /></div>
+              <div><label class="block text-sm font-black text-blue-900 mb-1">🏁 結束時間</label><input type="time" id="form-end-time" onchange="window.calcHours()" required class="w-full border border-blue-300 rounded-lg p-3 text-lg font-bold outline-none" /></div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><label class="block text-sm font-bold text-gray-700 mb-1">總時數(小時)</label><input type="number" step="0.1" id="form-hours" required readonly class="w-full border border-gray-300 rounded-lg p-3 font-black text-lg bg-gray-100 text-center" /></div>
+            <div><label class="block text-sm font-bold text-gray-700 mb-1">上課地點</label><input type="text" id="form-location" required class="w-full border border-gray-300 rounded-lg p-3 outline-none" /></div>
+          </div>
+          <div class="pt-4 flex gap-3">
+            <button type="submit" id="form-submit-btn" class="flex-1 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition bg-blue-700 hover:bg-blue-800 text-lg">建立課程</button>
+            <button type="button" id="form-cancel-btn" onclick="window.resetCourseForm()" class="hidden bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition text-lg shadow">取消</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 課程列表 -->
+      <div class="lg:col-span-2">
+        <h2 class="text-2xl font-black mb-6 text-gray-800 border-l-4 border-gray-800 pl-3">已建立之雲端課程清單</h2>
+        <div id="course-list-container" class="space-y-4">
+          <!-- 課程卡片由 JS 動態生成 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 4. 管理後台 - 單一課程詳細 (名冊/QR) ==================== -->
+  <div id="view-admin-detail" class="app-view hidden max-w-7xl mx-auto p-4 md:p-6 animate-fade-in">
+    <div class="flex justify-between items-center mb-6 no-print gap-4">
+      <button onclick="window.switchView('view-admin-list')" class="text-gray-600 bg-white border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 font-bold shadow-sm">← 返回</button>
+      <button onclick="window.print()" class="bg-red-700 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-800 transition shadow-lg">列印 / 匯出 PDF</button>
+    </div>
+
+    <!-- QR Code 區塊 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 no-print">
+      <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-600 flex items-start gap-6">
+        <img id="qr-enroll" src="" class="w-32 h-32 border p-2 rounded-lg" />
+        <div class="flex-1">
+          <h3 class="text-xl font-black text-blue-800 mb-2">Step 1: 報名邀請函</h3>
+          <button onclick="window.copyToClipboard('url-enroll')" class="w-full bg-blue-600 text-white font-bold py-2 rounded-lg mb-2">📋 複製網址</button>
+          <button onclick="window.goToPage('enroll')" class="w-full bg-gray-100 text-gray-700 font-bold py-2 rounded-lg border">💻 本頁模擬測試</button>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-green-600 flex items-start gap-6">
+        <img id="qr-sign" src="" class="w-32 h-32 border p-2 rounded-lg" />
+        <div class="flex-1">
+          <h3 class="text-xl font-black text-green-800 mb-2">Step 2: 現場簽到板</h3>
+          <button onclick="window.copyToClipboard('url-sign')" class="w-full bg-green-600 text-white font-bold py-2 rounded-lg mb-2">📋 複製網址</button>
+          <button onclick="window.goToPage('sign')" class="w-full bg-gray-100 text-gray-700 font-bold py-2 rounded-lg border">📱 本頁模擬測試</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 列印區塊 -->
+    <div id="printable-area" class="bg-white p-10 rounded-xl shadow-lg border border-gray-300 min-w-max overflow-x-auto text-black">
+      <div class="flex items-center justify-center gap-6 mb-8 border-b-[3px] border-black pb-6">
+        <img id="print-logo" src="" class="w-[85px] h-[85px] object-contain inline-block" />
+        <div class="text-left pr-[100px]">
+          <div class="font-bold text-[26px] tracking-[0.4em] font-serif">偉勝乾燥工業股份有限公司</div>
+          <div class="text-xl mt-2 font-serif font-bold tracking-wider">WEISUN INDUSTRIAL CO., LTD.</div>
+        </div>
+      </div>
+      <div class="text-center mb-6"><h1 class="text-[22px] font-black tracking-[0.3em] pb-2 inline-block border-b-2 border-black px-4">教育訓練學員名冊</h1></div>
+      
+      <table class="w-full border-collapse border-2 border-black text-[15px]">
+        <tbody id="print-table-header">
+          <!-- 標頭由 JS 填入 -->
+        </tbody>
+        <tbody id="print-table-body">
+          <!-- 學員名單由 JS 填入 -->
+        </tbody>
+      </table>
+      <div class="text-right mt-6"><p class="font-bold font-serif text-[16px] tracking-widest">QP-02-02-D</p></div>
+    </div>
+  </div>
+
+  <!-- ==================== 5. 員工 - 報名表單 ==================== -->
+  <div id="view-enroll" class="app-view hidden min-h-screen bg-gray-100 flex items-center justify-center p-4 bg-cover bg-center" style="background-image: url('https://www.transparenttextures.com/patterns/cubes.png')">
+    <div class="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl border-t-[6px] border-blue-600 relative mt-10">
+      <div class="text-center mb-8">
+        <img id="enroll-logo" src="" class="w-20 h-20 object-contain mx-auto bg-white p-3 rounded-full -mt-20 shadow-lg border border-gray-100 mb-3" />
+        <h2 class="text-3xl font-black text-gray-800 tracking-wider">教育訓練報名表</h2>
+      </div>
+      <div class="bg-blue-50 p-5 rounded-xl mb-8 border border-blue-200">
+        <h3 id="enroll-course-name" class="font-black text-blue-900 text-xl mb-3 border-b border-blue-200 pb-2">載入中...</h3>
+        <p id="enroll-course-info" class="text-blue-800 text-sm font-bold"></p>
+      </div>
+      <form onsubmit="window.handleEnrollSubmit(event)" class="space-y-5">
+        <div>
+          <label class="block text-sm font-black text-gray-700 mb-2">所屬單位 / 部門</label>
+          <select id="enroll-dept" required class="w-full border-2 border-gray-300 rounded-xl p-3 outline-none">
+            <option value="">請選擇</option>
+            <option value="總經理室">總經理室</option>
+            <option value="人資部">人資部</option>
+            <option value="資訊部">資訊部</option>
+            <option value="業務部">業務部</option>
+            <option value="研發部 - 研發課">研發部 - 研發課</option>
+            <option value="製造部 - 製造課">製造部 - 製造課</option>
+          </select>
+        </div>
+        <div><label class="block text-sm font-black text-gray-700 mb-2">工號</label><input type="text" id="enroll-empId" required class="w-full border-2 border-gray-300 rounded-xl p-3 uppercase outline-none" /></div>
+        <div><label class="block text-sm font-black text-gray-700 mb-2">姓名</label><input type="text" id="enroll-name" required class="w-full border-2 border-gray-300 rounded-xl p-3 font-bold outline-none" /></div>
+        <div class="pt-2">
+          <label class="block text-sm font-black text-gray-700 mb-3">是否參加？</label>
+          <div class="flex gap-4">
+            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer hover:bg-blue-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
+              <input type="radio" name="isAttending" value="Y" checked class="w-5 h-5 text-blue-600" /> <span class="ml-3 font-black text-lg">參加</span>
+            </label>
+            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer hover:bg-red-50 has-[:checked]:border-red-500 has-[:checked]:bg-red-50">
+              <input type="radio" name="isAttending" value="N" class="w-5 h-5 text-red-600" /> <span class="ml-3 font-black text-lg">不參加</span>
+            </label>
+          </div>
+        </div>
+        <button type="submit" class="w-full bg-blue-600 text-white font-black text-xl py-4 rounded-xl shadow-lg mt-6">送出報名</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 報名成功畫面 -->
+  <div id="view-enroll-success" class="app-view hidden min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl border-t-[6px] border-green-500 text-center">
+      <div class="text-6xl mb-4">🌟</div>
+      <h2 class="text-3xl font-black text-gray-800 mb-2">報名成功！</h2>
+      <p class="text-gray-500 mb-8 font-medium">您的資料已同步至雲端系統</p>
+      <button onclick="window.switchView('view-enroll')" class="w-full bg-gray-200 text-gray-800 font-bold py-3 rounded-xl mb-3">返回修改</button>
+      <button onclick="window.deleteEnrollment()" class="w-full bg-red-100 text-red-600 font-bold py-3 rounded-xl">刪除報名資料</button>
+    </div>
+  </div>
+
+  <!-- ==================== 6. 員工 - 現場簽到板 ==================== -->
+  <div id="view-sign" class="app-view hidden min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 bg-cover bg-center" style="background-image: url('https://www.transparenttextures.com/patterns/stardust.png')">
+    <div class="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl relative mt-8 border-t-[6px] border-green-500">
+      <div class="text-center mb-8 border-b-2 border-dashed border-gray-200 pb-6">
+        <img id="sign-logo" src="" class="w-16 h-16 object-contain mx-auto bg-white p-3 rounded-full -mt-16 shadow-lg border mb-3" />
+        <h2 class="text-3xl font-black text-green-700 tracking-wider">課程報到簽名板</h2>
+        <p id="sign-course-name" class="text-gray-800 font-bold mt-2 bg-green-50 inline-block px-4 py-1 rounded-full border border-green-200">載入中...</p>
+      </div>
+
+      <!-- 名單選擇區 -->
+      <div id="sign-list-container">
+        <div>
+          <label class="block text-sm font-black text-gray-700 mb-3">🔍 快速尋找您的名字：</label>
+          <input type="text" id="sign-search" oninput="window.renderSignList()" placeholder="輸入姓名或工號..." class="w-full border-2 border-blue-300 rounded-xl p-4 text-lg font-bold outline-none mb-4 bg-blue-50" />
+        </div>
+        <div id="unsigned-list" class="bg-gray-100 border-2 border-gray-200 rounded-xl p-2 max-h-[40vh] overflow-y-auto space-y-2">
+          <!-- 名單由 JS 渲染 -->
+        </div>
+        <div id="signed-list-container" class="mt-8 pt-6 border-t-2 border-dashed border-gray-200 hidden">
+          <p class="text-sm font-bold text-gray-500 mb-3">已完成簽到人員</p>
+          <div id="signed-list" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+
+      <!-- 簽名板畫布區 -->
+      <div id="signature-pad-container" class="hidden animate-fade-in text-center">
+        <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-200">
+          <span class="block text-blue-800 text-sm font-bold mb-1">目前簽到學員</span>
+          <span id="sign-current-user" class="block text-2xl font-black text-blue-900"></span>
+        </div>
+        <p class="text-gray-600 mb-2 font-bold text-center">請在下方虛線框內簽名：</p>
+        <canvas id="sig-canvas" width="350" height="200" class="border-2 border-dashed border-gray-400 bg-gray-50 rounded cursor-crosshair touch-none w-full max-w-[350px] mx-auto"></canvas>
+        <div class="flex w-full justify-between mt-4 gap-4">
+          <button onclick="window.clearCanvas()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded font-bold">清除重簽</button>
+          <button onclick="window.saveSignature()" class="flex-1 py-3 bg-blue-600 text-white rounded font-bold">確認送出</button>
+        </div>
+        <button onclick="window.cancelSign()" class="w-full mt-4 py-2 text-red-500 underline font-bold">返回上一頁</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 系統設定 Modal ==================== -->
+  <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[10000] no-print backdrop-blur-sm hidden p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+      <div class="flex justify-between items-center mb-6 border-b pb-4">
+        <h3 class="text-2xl font-black text-gray-800">⚙️ 系統設定</h3>
+        <button onclick="window.toggleSettings(false)" class="text-gray-400 font-bold text-xl">✕</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-black text-gray-800 mb-2">🌐 對外正式網址 (Public URL)</label>
+          <input type="text" id="setting-url" class="w-full border-2 border-gray-300 rounded-lg p-3 outline-none" placeholder="輸入 GitHub Pages 網址" />
+        </div>
+        <div>
+          <label class="block text-sm font-black text-gray-800 mb-2">🔑 變更管理員密碼</label>
+          <input type="password" id="setting-pass" class="w-full border-2 border-gray-300 rounded-lg p-3 outline-none mb-2" placeholder="新密碼 (不改留空)" />
+        </div>
+        <button onclick="window.saveSettings()" class="w-full bg-blue-600 text-white font-black text-lg py-3 rounded-xl mt-4">儲存並同步</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase & App Logic -->
+  <script type="module">
+    // Firebase CDN Imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyCbI5Co6jCusLm3327TZhyGmtxjPLmxCL8",
+      authDomain: "weisun-workhour.firebaseapp.com",
+      projectId: "weisun-workhour",
+      storageBucket: "weisun-workhour.firebasestorage.app",
+      messagingSenderId: "860504444963",
+      appId: "1:860504444963:web:7872172f271c2110a92196"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = "weisun-training-app";
+
+    // Global State
+    window.g_user = null;
+    window.g_courses = [];
+    window.g_records = [];
+    window.g_config = { password: '888', publicUrl: '', logoData: '' };
+    window.g_activeCourseId = null;
+    window.g_currentRecordId = null;
+    window.g_editingCourseId = null;
+    window.g_signingRecordId = null;
+
+    const DEFAULT_LOGO = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIj4KICA8IS0tIFJlZCBVIHN5bWJvbHMgLS0+CiAgPHBhdGggZD0iTTE1MCAxNjAgdjYwIGE0MCA0MCAwIDAgMCA4MCAwIHYtODAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0U2MDAxMiIgc3Ryb2tlLXdpZHRoPSIyNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPHBhdGggZD0iTTI1MCAxNjAgdi02MCBhNDAgNDAgMCAwIDAgLTgwIDAgdjgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNFNjAwMTIiIHN0cm9rZS13aWR0aD0iMjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwhLS0gd2Vpc3VuIHRleHQgLS0+CiAgPHRleHQgeD0iMTk1IiB5PSIyNjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2NSIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMzMTU0NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSIyIj53ZWlzdW48L3RleHQ+CiAgPCEtLSByZWQgZG90IC0tPgogIDxjaXJjbGUgY3g9IjIxNSIgY3k9IjIwMCIgcj0iOCIgZmlsbD0iI0U2MDAxMiIgLz4KICA8IS0tIHNpbmNlIDE5NzYgLS0+CiAgPHRleHQgeD0iMzIwIiB5PSIyMzAiIGZvbnQtZmFtaWx5PSJjdXJzaXZlLCBBcmlhbCIgZm9udC1zaXplPSIyMCIgZm9udC1zdHlsZT0iaXRhbGljIiBmaWxsPSIjMzE1NDZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5zaW5jZSAxOTc2PC90ZXh0PgogIDwhLS0g5YGJ5Yud5Lm+54Wl5bel5qWtIC0tPgogIDx0ZXh0IHg9IjE5NSIgeT0iMzEwIiBmb250LWZhbWlseT0iJ01pY3Jvc29mdCBKaGVuZ0hlaScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMzE1NDZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBsZXR0ZXItc3BhY2luZz0iNiI+5YGJ5Yud5Lm+54Wl5bel5qWtPC90ZXh0Pgo8L3N2Zz4=";
+
+    // Utility Functions
+    const generateId = () => Math.random().toString(36).substr(2, 9);
+    const formatDate = (ds) => {
+      if (!ds) return '';
+      const d = new Date(ds);
+      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
+    
+    window.showMsg = (msg) => {
+      const el = document.getElementById('notification');
+      document.getElementById('notification-text').innerText = msg;
+      el.classList.remove('opacity-0', 'translate-y-[-20px]');
+      setTimeout(() => el.classList.add('opacity-0', 'translate-y-[-20px]'), 3000);
+    };
+
+    window.switchView = (viewId) => {
+      document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
+      document.getElementById(viewId).classList.remove('hidden');
+      
+      const isPublicView = ['view-enroll', 'view-sign', 'view-enroll-success'].includes(viewId);
+      document.getElementById('top-bar').style.display = (viewId.startsWith('view-admin') || isPublicView) ? 'flex' : 'none';
+      if(isPublicView) document.getElementById('top-bar').style.display = 'none';
+
+      window.scrollTo(0,0);
+      updateUI();
+    };
+
+    // Firebase Auth & Listeners
+    signInAnonymously(auth).catch(err => {
+      alert("資料庫連線失敗: " + err.message);
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      window.g_user = user;
+      if (user) {
+        setupListeners();
+        checkUrlParams();
+      }
+    });
+
+    function setupListeners() {
+      onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'courses'), (snap) => {
+        window.g_courses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        updateUI();
+      });
+      onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'records'), (snap) => {
+        window.g_records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        updateUI();
+      });
+      onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'config'), (snap) => {
+        const conf = snap.docs.find(d => d.id === 'adminSettings');
+        if (conf) window.g_config = { ...window.g_config, ...conf.data() };
+        updateLogos();
+      });
+    }
+
+    function checkUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      const page = params.get('page');
+      const courseId = params.get('courseId');
+      if (page && courseId) {
+        window.g_activeCourseId = courseId;
+        if (page === 'enroll') window.switchView('view-enroll');
+        else if (page === 'sign') window.switchView('view-sign');
+      } else {
+        window.switchView('view-login');
+      }
+    }
+
+    function updateLogos() {
+      const logoUrl = window.g_config.logoData || DEFAULT_LOGO;
+      ['login-logo', 'print-logo', 'enroll-logo', 'sign-logo'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.src = logoUrl;
+      });
+    }
+
+    // ================= UI Render Logic =================
+    function updateUI() {
+      const view = document.querySelector('.app-view:not(.hidden)').id;
+      if (view === 'view-admin-list') renderAdminList();
+      else if (view === 'view-admin-detail') renderAdminDetail();
+      else if (view === 'view-enroll') renderEnrollForm();
+      else if (view === 'view-sign') window.renderSignList();
+    }
+
+    // --- Admin Auth ---
+    window.handleLogin = (e) => {
+      e.preventDefault();
+      if (document.getElementById('login-password').value === window.g_config.password) {
+        document.getElementById('login-password').value = '';
+        window.switchView('view-admin-list');
+        window.showMsg('登入成功！');
+      } else {
+        alert('密碼錯誤');
+      }
+    };
+    window.handleLogout = () => window.switchView('view-login');
+
+    // --- Admin List ---
+    window.calcHours = () => {
+      const d = document.getElementById('form-date').value;
+      const st = document.getElementById('form-start-time').value;
+      const et = document.getElementById('form-end-time').value;
+      if (d && st && et) {
+        const start = new Date(`${d}T${st}`);
+        const end = new Date(`${d}T${et}`);
+        if (end > start) document.getElementById('form-hours').value = ((end - start) / 3600000).toFixed(1);
+        else document.getElementById('form-hours').value = '';
+      }
+    };
+
+    window.resetCourseForm = () => {
+      window.g_editingCourseId = null;
+      document.getElementById('form-course-id').value = '';
+      document.getElementById('form-name').value = '';
+      document.getElementById('form-lecturer').value = '';
+      document.getElementById('form-date').value = '';
+      document.getElementById('form-start-time').value = '';
+      document.getElementById('form-end-time').value = '';
+      document.getElementById('form-hours').value = '';
+      document.getElementById('form-location').value = '';
+      
+      document.getElementById('course-form-title').innerHTML = '<span class="text-2xl">✨</span>新增教育訓練課程';
+      document.getElementById('course-form-container').classList.replace('border-yellow-500', 'border-blue-600');
+      document.getElementById('form-submit-btn').className = 'flex-1 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition bg-blue-700 hover:bg-blue-800 text-lg';
+      document.getElementById('form-submit-btn').innerText = '建立課程';
+      document.getElementById('form-cancel-btn').classList.add('hidden');
+    };
+
+    window.handleSaveCourse = async (e) => {
+      e.preventDefault();
+      if (!window.g_user) return;
+      const id = window.g_editingCourseId || generateId();
+      const courseData = {
+        id: id,
+        name: document.getElementById('form-name').value,
+        lecturer: document.getElementById('form-lecturer').value,
+        startTime: `${document.getElementById('form-date').value}T${document.getElementById('form-start-time').value}`,
+        endTime: `${document.getElementById('form-date').value}T${document.getElementById('form-end-time').value}`,
+        hours: document.getElementById('form-hours').value,
+        location: document.getElementById('form-location').value
+      };
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', id), courseData);
+      window.showMsg('課程儲存成功！');
+      window.resetCourseForm();
+    };
+
+    window.editCourse = (id) => {
+      const c = window.g_courses.find(x => x.id === id);
+      if (!c) return;
+      window.g_editingCourseId = id;
+      document.getElementById('form-name').value = c.name;
+      document.getElementById('form-lecturer').value = c.lecturer;
+      if (c.startTime) {
+        const [d, t] = c.startTime.split('T');
+        document.getElementById('form-date').value = d;
+        document.getElementById('form-start-time').value = t;
+      }
+      if (c.endTime) document.getElementById('form-end-time').value = c.endTime.split('T')[1];
+      document.getElementById('form-hours').value = c.hours;
+      document.getElementById('form-location').value = c.location;
+
+      document.getElementById('course-form-title').innerHTML = '<span class="text-2xl">✏️</span>修改課程資料';
+      document.getElementById('course-form-container').classList.replace('border-blue-600', 'border-yellow-500');
+      document.getElementById('form-submit-btn').className = 'flex-1 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition bg-yellow-600 hover:bg-yellow-700 text-lg';
+      document.getElementById('form-submit-btn').innerText = '確認儲存修改';
+      document.getElementById('form-cancel-btn').classList.remove('hidden');
+      window.scrollTo(0,0);
+    };
+
+    window.deleteCourse = async (id) => {
+      if (!confirm('確定刪除此課程及所有相關紀錄？')) return;
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', id));
+      const related = window.g_records.filter(r => r.courseId === id);
+      for (const r of related) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id));
+      window.showMsg('課程已刪除');
+    };
+
+    window.goToDetail = (id) => {
+      window.g_activeCourseId = id;
+      window.switchView('view-admin-detail');
+    };
+
+    function renderAdminList() {
+      const ctn = document.getElementById('course-list-container');
+      if (window.g_courses.length === 0) {
+        ctn.innerHTML = '<div class="bg-white p-10 rounded-xl text-center border-2 border-dashed border-gray-300"><p class="text-gray-500 text-lg font-bold">目前尚無資料</p></div>';
+        return;
+      }
+      ctn.innerHTML = window.g_courses.map(c => `
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row justify-between items-start xl:items-center">
+          <div class="mb-4 xl:mb-0">
+            <h3 class="text-xl font-black text-gray-900">${c.name}</h3>
+            <p class="text-sm text-gray-600 mt-2 font-bold">👤 ${c.lecturer} | 📍 ${c.location} | 🕒 ${formatDate(c.startTime)} (${c.hours}H)</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="window.editCourse('${c.id}')" class="bg-yellow-50 text-yellow-700 px-4 py-2 rounded-lg font-bold border">編輯</button>
+            <button onclick="window.deleteCourse('${c.id}')" class="bg-red-50 text-red-700 px-4 py-2 rounded-lg font-bold border">刪除</button>
+            <button onclick="window.goToDetail('${c.id}')" class="bg-blue-50 text-blue-600 px-6 py-2 rounded-lg font-bold border">管理 (名冊/QR)</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // --- Admin Detail ---
+    window.copyToClipboard = (type) => {
+      const baseUrl = window.g_config.publicUrl || (window.location.origin + window.location.pathname);
+      const url = `${baseUrl.replace(/\/$/, '')}?page=${type.replace('url-', '')}&courseId=${window.g_activeCourseId}`;
+      navigator.clipboard.writeText(url).then(() => window.showMsg('網址已複製！')).catch(() => alert('複製失敗，請手動複製: ' + url));
+    };
+
+    window.goToPage = (page) => {
+      window.location.search = `?page=${page}&courseId=${window.g_activeCourseId}`;
+    };
+
+    function renderAdminDetail() {
+      const c = window.g_courses.find(x => x.id === window.g_activeCourseId);
+      if (!c) return;
+
+      const baseUrl = window.g_config.publicUrl || (window.location.origin + window.location.pathname);
+      const eUrl = `${baseUrl.replace(/\/$/, '')}?page=enroll&courseId=${c.id}`;
+      const sUrl = `${baseUrl.replace(/\/$/, '')}?page=sign&courseId=${c.id}`;
+      
+      document.getElementById('qr-enroll').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(eUrl)}`;
+      document.getElementById('qr-sign').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(sUrl)}`;
+
+      // Print Table
+      document.getElementById('print-table-header').innerHTML = `
+        <tr><td class="border border-black px-3 py-2.5 font-bold bg-gray-100 w-32 text-center">課程名稱</td><td colspan="7" class="border border-black px-3 py-2.5 text-left pl-4">${c.name}</td></tr>
+        <tr><td class="border border-black px-3 py-2.5 font-bold bg-gray-100 w-32 text-center">講　　師</td><td colspan="7" class="border border-black px-3 py-2.5 text-left pl-4">${c.lecturer}</td></tr>
+        <tr><td class="border border-black px-3 py-2.5 font-bold bg-gray-100 text-center">上課時間</td><td colspan="7" class="border border-black px-3 py-2.5 text-left pl-4">${formatDate(c.startTime)} ～ ${formatDate(c.endTime)}</td></tr>
+        <tr><td class="border border-black px-3 py-2.5 font-bold bg-gray-100 text-center">上課地點</td><td colspan="7" class="border border-black px-3 py-2.5 text-left pl-4">${c.location}</td></tr>
+        <tr><td colspan="8" class="border border-black px-2 py-1.5 font-bold bg-gray-200 text-center tracking-[0.8em]">參 與 人 員</td></tr>
+        <tr class="bg-gray-100 text-center font-bold">
+          <td class="border border-black px-2 py-2 w-12">No</td><td class="border border-black px-2 py-2 w-24">部門</td><td class="border border-black px-2 py-2 w-24">工號</td>
+          <td class="border border-black px-2 py-2 w-24">姓名</td><td class="border border-black px-2 py-2 w-48">簽到</td><td class="border border-black px-2 py-2 w-24">成績</td>
+          <td class="border border-black px-2 py-2 w-24">合格</td><td class="border border-black px-2 py-2 w-24">備註</td>
+        </tr>
+      `;
+
+      const attendees = window.g_records.filter(r => r.courseId === c.id && r.isAttending);
+      let rowsHtml = '';
+      for(let i=0; i<Math.max(16, attendees.length); i++) {
+        const r = attendees[i];
+        rowsHtml += `<tr class="h-12 text-center">
+          <td class="border border-black px-1">${i+1}</td>
+          <td class="border border-black px-1">${r ? r.dept : ''}</td>
+          <td class="border border-black px-1 uppercase">${r ? r.empId : ''}</td>
+          <td class="border border-black px-1 tracking-widest font-bold">${r ? r.name : ''}</td>
+          <td class="border border-black px-1 p-1">${(r && r.signatureData) ? `<img src="${r.signatureData}" class="h-10 mx-auto object-contain mix-blend-multiply"/>` : ''}</td>
+          <td class="border border-black px-1"></td><td class="border border-black px-1"></td><td class="border border-black px-1"></td>
+        </tr>`;
+      }
+      rowsHtml += `
+        <tr class="bg-gray-100 text-center font-bold h-10"><td colspan="2" class="border border-black">參加人數</td><td colspan="2" class="border border-black">合格人數</td><td class="border border-black">平均成績一</td><td class="border border-black">平均成績二</td><td class="border border-black">加權平均</td><td class="border border-black">頁碼</td></tr>
+        <tr class="text-center h-10 font-bold"><td colspan="2" class="border border-black">合計 <span class="underline">${attendees.length}</span> 人</td><td colspan="2" class="border border-black"></td><td class="border border-black"></td><td class="border border-black"></td><td class="border border-black">/</td><td class="border border-black"></td></tr>
+      `;
+      document.getElementById('print-table-body').innerHTML = rowsHtml;
+    }
+
+    // --- Enroll ---
+    function renderEnrollForm() {
+      const c = window.g_courses.find(x => x.id === window.g_activeCourseId);
+      if(!c) return;
+      document.getElementById('enroll-course-name').innerText = c.name;
+      document.getElementById('enroll-course-info').innerText = `👤 ${c.lecturer} | 🕒 ${formatDate(c.startTime)}`;
+    }
+
+    window.handleEnrollSubmit = async (e) => {
+      e.preventDefault();
+      if(!window.g_user) return;
+      const empId = document.getElementById('enroll-empId').value;
+      const exist = window.g_records.find(r => r.courseId === window.g_activeCourseId && r.empId === empId);
+      const targetId = exist ? exist.id : generateId();
+      
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', targetId), {
+        id: targetId, courseId: window.g_activeCourseId,
+        dept: document.getElementById('enroll-dept').value,
+        empId: empId, name: document.getElementById('enroll-name').value,
+        isAttending: document.querySelector('input[name="isAttending"]:checked').value === 'Y',
+        signatureData: exist ? exist.signatureData : null
+      });
+      window.g_currentRecordId = targetId;
+      window.switchView('view-enroll-success');
+    };
+
+    window.deleteEnrollment = async () => {
+      if(confirm('確定刪除報名資料？')) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', window.g_currentRecordId));
+        window.switchView('view-enroll');
+        document.getElementById('enroll-empId').value = '';
+        document.getElementById('enroll-name').value = '';
+        window.showMsg('已刪除');
+      }
+    };
+
+    // --- Sign Pad Logic ---
+    const canvas = document.getElementById('sig-canvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000000';
+
+    const getPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    };
+    const startDraw = (e) => { e.preventDefault(); isDrawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+    const draw = (e) => { e.preventDefault(); if(!isDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+    const endDraw = (e) => { e.preventDefault(); if(isDrawing){ ctx.closePath(); isDrawing=false; }};
+
+    canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', endDraw); canvas.addEventListener('mouseout', endDraw);
+    canvas.addEventListener('touchstart', startDraw); canvas.addEventListener('touchmove', draw);
+    canvas.addEventListener('touchend', endDraw);
+
+    window.renderSignList = () => {
+      const c = window.g_courses.find(x => x.id === window.g_activeCourseId);
+      if(!c) return;
+      document.getElementById('sign-course-name').innerText = c.name;
+
+      const kw = document.getElementById('sign-search').value.toLowerCase();
+      const unsigned = window.g_records.filter(r => r.courseId === c.id && r.isAttending && !r.signatureData);
+      const signed = window.g_records.filter(r => r.courseId === c.id && r.isAttending && r.signatureData);
+      const filtered = unsigned.filter(r => r.name.includes(kw) || r.empId.toLowerCase().includes(kw));
+
+      document.getElementById('unsigned-list').innerHTML = filtered.length === 0 ? '<p class="p-4 text-center text-red-500 font-bold">找不到符合的報名資料</p>' : 
+        filtered.map(r => `
+          <button onclick="window.startSign('${r.id}', '${r.name}')" class="w-full text-left bg-white p-4 rounded-lg shadow-sm border-2 border-transparent hover:border-blue-500 flex justify-between items-center">
+            <div><div class="font-black text-xl">${r.name}</div><div class="text-sm text-gray-500">${r.dept} | ${r.empId}</div></div>
+            <span class="text-blue-700 font-black bg-blue-100 px-4 py-2 rounded-lg">點我簽名 👉</span>
+          </button>
+        `).join('');
+
+      const sCtn = document.getElementById('signed-list-container');
+      if (signed.length > 0) {
+        sCtn.classList.remove('hidden');
+        document.getElementById('signed-list').innerHTML = signed.map(r => `<span class="bg-white text-gray-700 text-xs px-3 py-1.5 rounded-lg border shadow-sm font-bold">${r.name}</span>`).join('');
+      } else sCtn.classList.add('hidden');
+    };
+
+    window.startSign = (id, name) => {
+      window.g_signingRecordId = id;
+      document.getElementById('sign-list-container').classList.add('hidden');
+      document.getElementById('signature-pad-container').classList.remove('hidden');
+      document.getElementById('sign-current-user').innerText = name;
+      window.clearCanvas();
+    };
+
+    window.cancelSign = () => {
+      window.g_signingRecordId = null;
+      document.getElementById('sign-list-container').classList.remove('hidden');
+      document.getElementById('signature-pad-container').classList.add('hidden');
+      document.getElementById('sign-search').value = '';
+      window.renderSignList();
+    };
+
+    window.clearCanvas = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    window.saveSignature = async () => {
+      if(!window.g_user || !window.g_signingRecordId) return;
+      const dataUrl = canvas.toDataURL('image/png');
+      const r = window.g_records.find(x => x.id === window.g_signingRecordId);
+      if(r) {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r, signatureData: dataUrl });
+        window.showMsg('簽到成功！');
+        window.cancelSign();
+      }
+    };
+
+    // --- Settings ---
+    window.toggleSettings = (show) => {
+      const m = document.getElementById('settings-modal');
+      if(show) {
+        document.getElementById('setting-url').value = window.g_config.publicUrl || '';
+        document.getElementById('setting-pass').value = '';
+        m.classList.remove('hidden');
+      } else m.classList.add('hidden');
+    };
+
+    window.saveSettings = async () => {
+      const np = document.getElementById('setting-pass').value;
+      const nu = document.getElementById('setting-url').value;
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'adminSettings'), {
+        password: np || window.g_config.password,
+        publicUrl: nu,
+        logoData: window.g_config.logoData
+      }, { merge: true });
+      window.showMsg('設定已儲存');
+      window.toggleSettings(false);
+    };
+
+  </script>
+</body>
+</html>
