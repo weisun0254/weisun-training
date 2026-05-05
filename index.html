@@ -360,8 +360,16 @@
         </div>
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex-1 text-gray-700">
           <div class="bg-gray-100 px-5 py-3 border-b text-sm flex justify-between items-center text-gray-700">
-             <span>目前已報名清單</span>
-             <span id="course-manage-count" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs shadow-sm border border-blue-200">0 人</span>
+             <div class="flex items-center gap-3">
+               <span class="font-bold">目前已報名清單</span>
+               <span id="course-manage-count" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs shadow-sm border border-blue-200">0 人</span>
+             </div>
+             <!-- 新增區塊：匯入與匯出名單的按鈕 -->
+             <div class="flex gap-2">
+               <input type="file" id="course-csv-upload" accept=".csv" class="hidden" onchange="window.handleCourseCSVImport(event)" />
+               <button type="button" onclick="document.getElementById('course-csv-upload').click()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-md border border-indigo-200 hover:bg-indigo-100 transition btn-action flex items-center gap-1 shadow-sm">📥 <span class="hidden sm:inline">匯入名單</span></button>
+               <button type="button" onclick="window.handleCourseCSVExport()" class="text-xs bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-md border border-emerald-200 hover:bg-emerald-100 transition btn-action flex items-center gap-1 shadow-sm">📤 <span class="hidden sm:inline">匯出名單</span></button>
+             </div>
           </div>
           <div class="max-h-[50vh] overflow-y-auto custom-scrollbar">
              <table class="w-full text-left text-sm border-collapse">
@@ -713,6 +721,70 @@
     // ✅ 步驟七：名冊管理與報名簽到邏輯
     // ----------------------------------------------------------------------
     
+    // --- 新增：名單管理區的 CSV 匯出與匯入 ---
+    window.handleCourseCSVExport = function() {
+        const c = window.g_courses.find(x => x.id === window.g_activeCourseId);
+        const cName = c ? c.name : '未知課程';
+        let csv = '\uFEFF工號,姓名,單位\n';
+        (window.g_courseManageAttendees || []).forEach(a => {
+            csv += `"${a.empId}","${a.name}","${a.dept}"\n`;
+        });
+        const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${cName}_報名名冊.csv`;
+        link.click();
+    };
+
+    window.handleCourseCSVImport = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const lines = text.split('\n');
+            let addedCount = 0;
+            let notFoundCount = 0;
+            
+            lines.forEach(line => {
+                const cols = line.split(',').map(x => x.trim().replace(/^"|"$/g, ''));
+                // 假設第一欄是工號
+                if (cols.length >= 1 && cols[0] && !cols[0].includes('工號')) {
+                    const eid = String(cols[0]).toUpperCase();
+                    // 檢查是否已經在本次名單中
+                    if (!window.g_courseManageAttendees.find(a => String(a.empId).trim() === eid)) {
+                        // 從全公司主檔案撈取資料，確保資料一致性
+                        const mE = (window.g_config.employees || []).find(x => String(x.empId).trim() === eid);
+                        if (mE) {
+                            window.g_courseManageAttendees.push({
+                                id: window.generateId(),
+                                courseId: window.g_activeCourseId,
+                                empId: eid,
+                                name: mE.name,
+                                dept: mE.dept,
+                                isAttending: true,
+                                signatureData: null
+                            });
+                            addedCount++;
+                        } else {
+                            notFoundCount++;
+                        }
+                    }
+                }
+            });
+            
+            window.g_courseManageAttendees.sort((a,b) => String(a.empId).localeCompare(String(b.empId)));
+            window.renderCourseManageTable();
+            event.target.value = ''; // 清空 file input，以便下次選同一個檔案時能再次觸發
+            
+            let msg = `✅ 成功匯入 ${addedCount} 筆資料`;
+            if (notFoundCount > 0) msg += ` (略過 ${notFoundCount} 筆未建檔工號)`;
+            window.showMsg(msg);
+        };
+        reader.readAsText(file);
+    };
+    // ------------------------------------------
+
     window.handleManageEmpIdInput = function(e) {
       const eid = e.target.value.trim().toUpperCase();
       const pEl = document.getElementById('course-manual-preview'); 
