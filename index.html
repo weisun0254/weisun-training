@@ -56,7 +56,6 @@
       <span class="bg-green-600 px-3 py-1 rounded-full shadow-sm animate-pulse">● 雲端已連線</span>
     </div>
     <div>
-      <!-- 修改：綁定需輸入密碼的函數 -->
       <button type="button" onclick="window.requireAuthThen('view-admin-list')" class="px-5 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white btn-action">🔒 返回管理首頁</button>
     </div>
   </div>
@@ -341,9 +340,13 @@
       <div class="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
         <div class="bg-blue-50 p-6 rounded-2xl border border-blue-200">
            <label class="block text-lg text-blue-900 mb-2">➕ 輸入工號新增報名</label>
-           <div class="flex gap-4">
-              <input type="text" id="course-manual-empId" placeholder="請輸入工號 (Wxxxx)" class="flex-1 border-2 border-white p-3 rounded-xl uppercase outline-none focus:border-blue-400 shadow-inner" />
-              <button type="button" onclick="window.addAttendeeToCourse()" class="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 shadow-md btn-action text-lg">加入</button>
+           <!-- 修改區塊：將輸入框、按鈕與新增的預覽文字區域整合 -->
+           <div class="flex flex-col gap-2">
+              <div class="flex gap-4">
+                 <input type="text" id="course-manual-empId" oninput="window.handleManageEmpIdInput(event)" onkeydown="if(event.keyCode==13){event.preventDefault(); window.addAttendeeToCourse();}" placeholder="請輸入工號 (Wxxxx)" class="flex-1 border-2 border-white p-3 rounded-xl uppercase outline-none focus:border-blue-400 shadow-inner" />
+                 <button type="button" onclick="window.addAttendeeToCourse()" class="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 shadow-md btn-action text-lg shrink-0">加入</button>
+              </div>
+              <div id="course-manual-preview" class="h-6 text-sm px-2 transition-all"></div>
            </div>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex-1 text-gray-700">
@@ -410,7 +413,6 @@
         dlg.classList.remove('hidden');
     };
 
-    // 新增：需要密碼驗證的安全跳轉函數
     window.requireAuthThen = (targetView) => {
         const dlg = document.getElementById('custom-dialog'); if(!dlg) return;
         const icon = document.getElementById('dialog-icon'); if(icon) icon.innerText = '🔒';
@@ -456,7 +458,6 @@
       document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden')); 
       const target = document.getElementById(vid); if(target) target.classList.remove('hidden');
       const topBar = document.getElementById('top-bar');
-      // 修改：在「報名成功(view-enroll-success)」畫面也全面隱藏上方狀態列
       if(topBar) topBar.style.display = (vid==='view-login'||vid==='view-loading'||vid==='view-enroll'||vid==='view-enroll-success'||vid==='view-sign') ? 'none' : 'flex'; 
       
       if(vid === 'view-enroll' && !keepData) {
@@ -702,8 +703,40 @@
     // ----------------------------------------------------------------------
     // ✅ 步驟七：名冊管理與報名簽到邏輯
     // ----------------------------------------------------------------------
-    window.openManageModal = function(cid) { window.g_activeCourseId = cid || window.g_activeCourseId; window.g_courseManageAttendees = JSON.parse(JSON.stringify(window.g_records.filter(r => r.courseId === window.g_activeCourseId && r.isAttending))).sort((a,b)=>(a.empId||'').localeCompare(b.empId||'')); const m = document.getElementById('manage-modal'); if(m) m.classList.remove('hidden'); window.renderCourseManageTable(); };
+    
+    // 新增：處理工號輸入的即時預覽
+    window.handleManageEmpIdInput = function(e) {
+      const eid = e.target.value.trim().toUpperCase();
+      const pEl = document.getElementById('course-manual-preview'); 
+      if(!pEl) return;
+      if(!eid) { pEl.innerHTML = ''; return; }
+      
+      const mE = (window.g_config.employees || []).find(x => String(x.empId).trim() === eid);
+      if(mE) {
+        const inList = window.g_courseManageAttendees.find(a => String(a.empId).trim() === eid);
+        if(inList) {
+          pEl.innerHTML = `<span class="text-yellow-600 font-bold">⚠️ ${mE.name} (${mE.dept}) - 已在報名名單中</span>`;
+        } else {
+          pEl.innerHTML = `<span class="text-green-600 font-bold">✅ 準備加入：${mE.name} (${mE.dept})</span>`;
+        }
+      } else {
+        pEl.innerHTML = `<span class="text-red-500 font-bold">❌ 查無此工號，請確認後重試</span>`;
+      }
+    };
+
+    window.openManageModal = function(cid) { 
+      window.g_activeCourseId = cid || window.g_activeCourseId; 
+      window.g_courseManageAttendees = JSON.parse(JSON.stringify(window.g_records.filter(r => r.courseId === window.g_activeCourseId && r.isAttending))).sort((a,b)=>(a.empId||'').localeCompare(b.empId||'')); 
+      const m = document.getElementById('manage-modal'); if(m) m.classList.remove('hidden'); 
+      
+      // 開啟時清空輸入與預覽區
+      const eEl = document.getElementById('course-manual-empId'); if(eEl) eEl.value = '';
+      const pEl = document.getElementById('course-manual-preview'); if(pEl) pEl.innerHTML = '';
+      
+      window.renderCourseManageTable(); 
+    };
     window.closeManageModal = function() { const m = document.getElementById('manage-modal'); if(m) m.classList.add('hidden'); };
+    
     window.addAttendeeToCourse = function() {
       const eEl = document.getElementById('course-manual-empId'); if(!eEl) return;
       const eid = eEl.value.trim().toUpperCase(); if(!eid) return window.customAlert('請輸入工號！');
@@ -711,7 +744,13 @@
       if(!mE) return window.customAlert(`查無此工號！`);
       if(window.g_courseManageAttendees.find(a => String(a.empId).trim() === eid)) return window.customAlert('已在名單中');
       window.g_courseManageAttendees.push({ id: window.generateId(), courseId: window.g_activeCourseId, empId: eid, name: mE.name, dept: mE.dept, isAttending: true, signatureData: null });
-      window.g_courseManageAttendees.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); eEl.value=''; window.renderCourseManageTable(); window.showMsg(`✅ 已加入：${mE.name}`);
+      window.g_courseManageAttendees.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); 
+      
+      // 加入成功後清空輸入框與預覽
+      eEl.value = ''; 
+      const pEl = document.getElementById('course-manual-preview'); if(pEl) pEl.innerHTML = '';
+      
+      window.renderCourseManageTable(); window.showMsg(`✅ 已加入：${mE.name}`);
     };
     window.removeCourseAttendee = function(id) { window.g_courseManageAttendees = window.g_courseManageAttendees.filter(x => x.id !== id); window.renderCourseManageTable(); };
     window.renderCourseManageTable = function() { 
