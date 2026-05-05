@@ -285,7 +285,8 @@
         <canvas id="sig-canvas" width="350" height="200" class="border-2 border-dashed border-gray-400 bg-gray-50 rounded-2xl cursor-crosshair touch-none w-full max-w-[350px] mx-auto mb-6"></canvas>
         <div class="flex w-full justify-between gap-3">
           <button type="button" onclick="window.clearCanvas()" class="flex-1 py-3 bg-red-50 text-red-600 rounded-xl btn-action border border-red-200">🗑️ 清除</button>
-          <button type="button" id="btn-undo" onclick="window.undoCanvas()" class="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl btn-action border border-gray-300">↩️ 撤銷</button>
+          <!-- 加入 disabled 樣式，使其無法點擊時有明顯視覺回饋 -->
+          <button type="button" id="btn-undo" onclick="window.undoCanvas()" class="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl btn-action border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>↩️ 撤銷</button>
           <button type="button" onclick="window.saveSignature()" class="flex-[1.5] py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-xl shadow-xl btn-action">✅ 確認送出</button>
         </div>
         <button type="button" onclick="window.cancelSign()" class="w-full mt-6 py-2 text-red-500 underline bg-transparent btn-action">返回名單</button>
@@ -712,7 +713,6 @@
     // ✅ 步驟七：名冊管理與報名簽到邏輯
     // ----------------------------------------------------------------------
     
-    // 新增：處理工號輸入的即時預覽
     window.handleManageEmpIdInput = function(e) {
       const eid = e.target.value.trim().toUpperCase();
       const pEl = document.getElementById('course-manual-preview'); 
@@ -737,7 +737,6 @@
       window.g_courseManageAttendees = JSON.parse(JSON.stringify(window.g_records.filter(r => r.courseId === window.g_activeCourseId && r.isAttending))).sort((a,b)=>(a.empId||'').localeCompare(b.empId||'')); 
       const m = document.getElementById('manage-modal'); if(m) m.classList.remove('hidden'); 
       
-      // 開啟時清空輸入與預覽區
       const eEl = document.getElementById('course-manual-empId'); if(eEl) eEl.value = '';
       const pEl = document.getElementById('course-manual-preview'); if(pEl) pEl.innerHTML = '';
       
@@ -754,7 +753,6 @@
       window.g_courseManageAttendees.push({ id: window.generateId(), courseId: window.g_activeCourseId, empId: eid, name: mE.name, dept: mE.dept, isAttending: true, signatureData: null });
       window.g_courseManageAttendees.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); 
       
-      // 加入成功後清空輸入框與預覽
       eEl.value = ''; 
       const pEl = document.getElementById('course-manual-preview'); if(pEl) pEl.innerHTML = '';
       
@@ -828,7 +826,10 @@
         sc.classList.remove('hidden'); 
         const scEl = document.getElementById('signed-count'); if(scEl) scEl.innerText = `${sgn.length} 人`; 
         const sl = document.getElementById('signed-list'); 
-        if(sl) sl.innerHTML = (sgn.length === 0) ? '<span class="text-sm text-gray-400">尚未有人簽到</span>' : sgn.map(r => `<span class="bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-md border border-gray-200">${r.name}</span>`).join(''); 
+        
+        // 將原本的純文字標籤改為可點擊的按鈕，點擊後一樣呼叫 startSign 來編輯舊簽名
+        if(sl) sl.innerHTML = (sgn.length === 0) ? '<span class="text-sm text-gray-400">尚未有人簽到</span>' : 
+            sgn.map(r => `<button type="button" onclick="window.startSign('${r.id}', '${r.name}')" class="bg-green-50 text-green-700 text-xs px-3 py-1.5 rounded-md border border-green-200 hover:bg-green-100 hover:border-green-300 btn-action flex items-center gap-1 shadow-sm transition"><span>${r.name}</span><span class="text-green-500 bg-white rounded-full w-4 h-4 flex items-center justify-center border border-green-200" title="修改簽名">✎</span></button>`).join(''); 
       } 
     };
 
@@ -850,15 +851,72 @@
         const cvsEl = document.getElementById('sig-canvas'); if (!cvsEl) return;
         sigCvs = cvsEl; sigCtx = sigCvs.getContext('2d');
         sigCtx.lineWidth = 3; sigCtx.lineCap = 'round'; sigCtx.lineJoin = 'round'; sigCtx.strokeStyle = '#000';
-        window.clearCanvas();
+        
+        window.clearCanvas(); // 先填滿背景色
+
+        // 如果該員原本就已經有簽名 (編輯模式)，則將舊簽名畫上去
+        const r = window.g_records.find(x => x.id === window.g_signingRecordId);
+        if (r && r.signatureData) {
+            const img = new Image();
+            img.onload = () => {
+                sigCtx.drawImage(img, 0, 0);
+                sigHistoryLog = [sigCvs.toDataURL()]; // 將載入的舊簽名設為歷史紀錄的起點
+                const b = document.getElementById('btn-undo'); if(b) b.disabled = true;
+            };
+            img.src = r.signatureData;
+        }
+
         const getP = e => { const r = sigCvs.getBoundingClientRect(), cX = (e.touches ? e.touches[0].clientX : e.clientX), cY = (e.touches ? e.touches[0].clientY : e.clientY); return { x: cX - r.left, y: cY - r.top }; };
         sigCvs.onmousedown = sigCvs.ontouchstart = e => { e.preventDefault(); isDrawingSign = true; const p = getP(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); };
         sigCvs.onmousemove = sigCvs.ontouchmove = e => { e.preventDefault(); if(!isDrawingSign) return; const p = getP(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); };
         sigCvs.onmouseup = sigCvs.ontouchend = e => { e.preventDefault(); if(isDrawingSign){ sigCtx.closePath(); isDrawingSign=false; sigHistoryLog.push(sigCvs.toDataURL()); const b = document.getElementById('btn-undo'); if(b) b.disabled = false; } };
     };
-    window.clearCanvas = () => { if(!sigCtx || !sigCvs) return; sigCtx.fillStyle = '#f9fafb'; sigCtx.fillRect(0,0,sigCvs.width,sigCvs.height); sigHistoryLog = [sigCvs.toDataURL()]; const b = document.getElementById('btn-undo'); if(b) b.disabled = true; };
-    window.undoCanvas = () => { if(sigHistoryLog.length <= 1) return; sigHistoryLog.pop(); const img = new Image(); img.src = sigHistoryLog[sigHistoryLog.length-1]; img.onload = () => { sigCtx.clearRect(0,0,sigCvs.width,sigCvs.height); sigCtx.drawImage(img,0,0); }; if(sigHistoryLog.length<=1) { const b = document.getElementById('btn-undo'); if(b) b.disabled=true; } };
-    window.saveSignature = async () => { if(!sigCvs) return; const dataUrl = sigCvs.toDataURL('image/png'), r = window.g_records.find(x => x.id === window.g_signingRecordId); if(r) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r, signatureData: dataUrl }); window.showMsg('✅ 簽到完成'); window.cancelSign(); } };
+    
+    window.clearCanvas = () => { 
+        if(!sigCtx || !sigCvs) return; 
+        sigCtx.fillStyle = '#f9fafb'; sigCtx.fillRect(0,0,sigCvs.width,sigCvs.height); 
+        sigHistoryLog = [sigCvs.toDataURL()]; 
+        const b = document.getElementById('btn-undo'); if(b) b.disabled = true; 
+    };
+    
+    window.undoCanvas = () => { 
+        if(sigHistoryLog.length <= 1) return; 
+        sigHistoryLog.pop(); 
+        const img = new Image(); img.src = sigHistoryLog[sigHistoryLog.length-1]; 
+        img.onload = () => { sigCtx.clearRect(0,0,sigCvs.width,sigCvs.height); sigCtx.drawImage(img,0,0); }; 
+        if(sigHistoryLog.length<=1) { const b = document.getElementById('btn-undo'); if(b) b.disabled=true; } 
+    };
+
+    window.saveSignature = async () => { 
+        if(!sigCvs) return; 
+        const r = window.g_records.find(x => x.id === window.g_signingRecordId); 
+        if(!r) return;
+
+        // 產生一個全白的基準畫布來比對是否為空畫布
+        const bCvs = document.createElement('canvas'); bCvs.width = sigCvs.width; bCvs.height = sigCvs.height;
+        const bCtx = bCvs.getContext('2d'); bCtx.fillStyle = '#f9fafb'; bCtx.fillRect(0,0,bCvs.width,bCvs.height);
+        
+        const isBlank = (sigCvs.toDataURL() === bCvs.toDataURL());
+
+        if (isBlank) {
+            // 如果目前畫布是空白的...
+            if (r.signatureData) {
+                // 狀況 A: 他原本有簽名，但他按了清除，然後點擊確認送出 -> 詢問是否要取消簽到
+                window.customConfirm('您清除了簽名，確定要將此學員設為「未簽到」嗎？', async () => {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r, signatureData: null }); 
+                    window.showMsg('✅ 已取消簽到'); window.cancelSign();
+                });
+            } else {
+                // 狀況 B: 新來的人，什麼都沒畫就按送出 -> 提示錯誤
+                window.customAlert('請先在畫布上簽名！');
+            }
+        } else {
+            // 有畫東西，正常存檔
+            const dataUrl = sigCvs.toDataURL('image/png');
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r, signatureData: dataUrl }); 
+            window.showMsg('✅ 簽到完成'); window.cancelSign(); 
+        }
+    };
 
     // ----------------------------------------------------------------------
     // ✅ 步驟八：啟動監聽器 (放在所有函數宣告完畢後)
