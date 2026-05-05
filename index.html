@@ -45,7 +45,7 @@
     <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center">
       <div id="dialog-icon" class="text-6xl mb-4">⚠️</div>
       <h3 id="dialog-title" class="text-2xl font-bold text-gray-800 mb-3">系統提示</h3>
-      <p id="dialog-message" class="text-gray-600 font-bold mb-8 text-lg"></p>
+      <div id="dialog-message" class="text-gray-600 font-bold mb-8 text-lg"></div>
       <div id="dialog-buttons" class="flex gap-4"></div>
     </div>
   </div>
@@ -56,7 +56,8 @@
       <span class="bg-green-600 px-3 py-1 rounded-full shadow-sm animate-pulse">● 雲端已連線</span>
     </div>
     <div>
-      <button type="button" onclick="window.switchView('view-admin-list')" class="px-5 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white btn-action">返回管理首頁</button>
+      <!-- 修改：綁定需輸入密碼的函數 -->
+      <button type="button" onclick="window.requireAuthThen('view-admin-list')" class="px-5 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white btn-action">🔒 返回管理首頁</button>
     </div>
   </div>
 
@@ -366,7 +367,7 @@
     import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // ----------------------------------------------------------------------
-    // ✅ 步驟一：將所有「共用與工具函數」率先掛載到 window，避免 is not a function 錯誤
+    // ✅ 步驟一：將所有「共用與工具函數」率先掛載到 window
     // ----------------------------------------------------------------------
     window.generateId = () => Math.random().toString(36).substring(2, 11);
     
@@ -404,6 +405,38 @@
         dlg.classList.remove('hidden');
     };
 
+    // 新增：需要密碼驗證的安全跳轉函數
+    window.requireAuthThen = (targetView) => {
+        const dlg = document.getElementById('custom-dialog'); if(!dlg) return;
+        const icon = document.getElementById('dialog-icon'); if(icon) icon.innerText = '🔒';
+        const title = document.getElementById('dialog-title'); if(title) title.innerText = '系統管理員驗證';
+        const message = document.getElementById('dialog-message'); 
+        if(message) message.innerHTML = '<p class="text-sm text-gray-500 mb-3">請輸入管理密碼以進入後台</p><input type="password" id="auth-check-pass" placeholder="請輸入密碼..." class="w-full border-2 border-gray-300 p-3 rounded-xl text-center text-xl outline-none focus:border-blue-600 bg-gray-50">';
+        
+        const bC = document.getElementById('dialog-buttons'); if(bC) bC.innerHTML = ''; 
+        
+        const b1 = document.createElement('button'); 
+        b1.className = "flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl btn-action border border-gray-300"; 
+        b1.innerText = "取消"; b1.onclick = () => dlg.classList.add('hidden');
+        
+        const b2 = document.createElement('button'); 
+        b2.className = "flex-1 bg-blue-600 text-white py-3 rounded-xl shadow-md btn-action"; 
+        b2.innerText = "確認送出"; 
+        b2.onclick = () => { 
+            const pEl = document.getElementById('auth-check-pass');
+            if(pEl && pEl.value === window.g_config.password) {
+                dlg.classList.add('hidden'); 
+                window.switchView(targetView); 
+            } else {
+                if(pEl) { pEl.value = ''; pEl.classList.add('border-red-500', 'bg-red-50'); pEl.placeholder = '密碼錯誤！'; }
+            }
+        };
+        
+        if(bC) { bC.appendChild(b1); bC.appendChild(b2); }
+        dlg.classList.remove('hidden');
+        setTimeout(() => { const pEl = document.getElementById('auth-check-pass'); if(pEl) pEl.focus(); }, 100);
+    };
+
     window.showMsg = (msg) => { 
         const el = document.getElementById('notification'); 
         const txt = document.getElementById('notification-text');
@@ -418,7 +451,8 @@
       document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden')); 
       const target = document.getElementById(vid); if(target) target.classList.remove('hidden');
       const topBar = document.getElementById('top-bar');
-      if(topBar) topBar.style.display = (vid==='view-login'||vid==='view-loading') ? 'none' : 'flex'; 
+      // 修改：在「報名成功(view-enroll-success)」畫面也全面隱藏上方狀態列
+      if(topBar) topBar.style.display = (vid==='view-login'||vid==='view-loading'||vid==='view-enroll'||vid==='view-enroll-success'||vid==='view-sign') ? 'none' : 'flex'; 
       
       if(vid === 'view-enroll') {
          const ids = ['enroll-empId', 'enroll-name', 'enroll-dept-display', 'enroll-dept'];
