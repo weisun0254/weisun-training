@@ -9,12 +9,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
-    /* ✅ 設定微軟正黑體為全域字體 */
-    body {
-      font-family: "Microsoft JhengHei", "微軟正黑體", "Heiti TC", "Apple LiGothic Medium", sans-serif;
+    /* ✅ 設定微軟正黑體為全域最優先字體 */
+    * {
+      font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
     }
+    
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    
     @media print {
       body * { visibility: hidden; }
       #printable-area, #printable-area * { visibility: visible; }
@@ -23,6 +25,7 @@
       @page { size: A4 portrait; margin: 10mm; }
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
+    
     canvas { touch-action: none; }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -30,34 +33,35 @@
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     .btn-action { cursor: pointer; transition: all 0.2s; border: none; }
     .btn-action:active { transform: scale(0.96); }
-    /* 下拉選單美化 */
+    
+    /* 下拉選單樣式美化 */
     select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem; padding-right: 2.5rem; }
   </style>
 </head>
-<body class="bg-gray-100 relative min-h-screen text-gray-800 selection:bg-blue-100">
+<body class="bg-gray-100 relative min-h-screen text-gray-800">
 
-  <!-- ==================== 自訂對話框 (解決刪除失效問題) ==================== -->
-  <div id="custom-dialog" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[35000] hidden p-4 animate-fade-in backdrop-blur-sm no-print font-bold">
-    <div class="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-w-sm text-center transform transition-all border border-gray-100">
+  <!-- ==================== 自訂對話框 ==================== -->
+  <div id="custom-dialog" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[50000] hidden p-4 animate-fade-in backdrop-blur-sm no-print">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center">
       <div id="dialog-icon" class="text-6xl mb-4">⚠️</div>
-      <h3 id="dialog-title" class="text-2xl font-black text-gray-800 mb-3 tracking-tighter">系統提示</h3>
-      <p id="dialog-message" class="text-gray-500 font-bold mb-8 whitespace-pre-line leading-relaxed text-lg tracking-tight"></p>
+      <h3 id="dialog-title" class="text-2xl font-bold text-gray-800 mb-3">系統提示</h3>
+      <p id="dialog-message" class="text-gray-600 font-bold mb-8 text-lg"></p>
       <div id="dialog-buttons" class="flex gap-4"></div>
     </div>
   </div>
 
   <!-- 頂部狀態列 -->
-  <div id="top-bar" class="bg-gray-900 text-white p-2.5 text-xs flex justify-between items-center z-50 sticky top-0 no-print shadow-lg hidden font-bold">
+  <div id="top-bar" class="bg-gray-900 text-white p-3 text-sm flex justify-between items-center z-40 sticky top-0 no-print shadow-xl hidden font-bold">
     <div class="flex items-center gap-2">
-      <span class="bg-green-600 px-2 py-1 rounded shadow-sm text-white animate-pulse">● 雲端已連線</span>
+      <span class="bg-green-600 px-3 py-1 rounded-full shadow-sm animate-pulse">● 雲端已連線</span>
     </div>
-    <div class="flex gap-2">
-      <button type="button" onclick="window.switchView('view-admin-list')" class="px-4 py-1.5 rounded-full transition shadow-sm bg-blue-600 hover:bg-blue-500 text-white btn-action">返回管理後台</button>
+    <div>
+      <button type="button" onclick="window.switchView('view-admin-list')" class="px-5 py-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white btn-action">返回管理首頁</button>
     </div>
   </div>
 
-  <!-- 全域提示訊息 -->
-  <div id="notification" class="fixed top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-8 py-4 rounded-full shadow-2xl font-bold transition-all duration-300 z-[25000] no-print border-2 border-green-500 flex items-center gap-3 opacity-0 pointer-events-none translate-y-[-20px]">
+  <!-- 全域訊息提示 -->
+  <div id="notification" class="fixed top-16 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-8 py-4 rounded-full shadow-2xl font-bold transition-all duration-300 z-[40000] no-print border-2 border-green-500 flex items-center gap-3 opacity-0 pointer-events-none translate-y-[-20px]">
     <span class="text-xl">✅</span> <span id="notification-text">訊息內容</span>
   </div>
 
@@ -65,72 +69,78 @@
   <div id="view-loading" class="app-view min-h-screen flex items-center justify-center bg-white">
     <div class="text-center flex flex-col items-center">
       <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-      <h2 class="text-2xl font-black text-gray-800 tracking-widest">系統初始化中...</h2>
+      <h2 class="text-2xl font-bold text-gray-800 tracking-widest">系統初始化中...</h2>
     </div>
   </div>
 
   <!-- 2. 管理員登入 -->
-  <div id="view-login" class="app-view hidden min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 relative text-gray-800 font-bold">
+  <div id="view-login" class="app-view hidden min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 relative font-bold">
     <div class="mb-10 text-center flex flex-col items-center animate-fade-in">
-      <img id="login-logo" src="" alt="Logo" class="w-32 h-32 mb-4 object-contain" />
-      <h1 class="text-3xl md:text-4xl tracking-[0.2em] font-black">偉勝乾燥工業股份有限公司</h1>
-      <h2 class="text-lg md:text-xl text-gray-500 mt-2 font-bold tracking-widest uppercase">WEISUN INDUSTRIAL CO., LTD.</h2>
+      <img id="login-logo" src="" alt="Logo" class="w-32 h-32 mb-6 object-contain" />
+      <h1 class="text-3xl md:text-4xl tracking-widest font-bold">偉勝乾燥工業股份有限公司</h1>
+      <h2 class="text-lg text-gray-500 mt-2 tracking-widest">WEISUN INDUSTRIAL CO., LTD.</h2>
     </div>
-    <div class="w-full max-w-md bg-white p-10 rounded-[2.5rem] shadow-2xl border-t-8 border-blue-800">
-      <div class="text-center mb-8 border-b pb-6 font-black">
-        <h2 class="text-2xl font-black text-gray-800">教育訓練管理員登入</h2>
+    <div class="w-full max-w-md bg-white p-10 rounded-3xl shadow-2xl border-t-8 border-blue-800">
+      <div class="text-center mb-8 border-b pb-6">
+        <h2 class="text-2xl font-bold text-gray-800">教育訓練系統登入</h2>
       </div>
       <form onsubmit="window.handleLogin(event)">
-        <div class="mb-6 font-black">
-          <input type="password" id="login-password" placeholder="請輸入密碼..." required class="w-full border-2 border-gray-200 rounded-2xl p-4 focus:ring-4 focus:ring-blue-100 outline-none text-center tracking-widest text-2xl font-black bg-gray-50" />
+        <div class="mb-8">
+          <input type="password" id="login-password" placeholder="請輸入管理密碼..." required class="w-full border-2 border-gray-200 rounded-2xl p-5 focus:border-blue-600 outline-none text-center text-2xl font-bold bg-gray-50" />
         </div>
-        <button type="submit" class="w-full bg-blue-800 text-white font-black text-xl py-4 rounded-2xl hover:bg-blue-900 transition shadow-lg btn-action">驗證並登入</button>
+        <button type="submit" class="w-full bg-blue-800 text-white font-bold text-xl py-5 rounded-2xl hover:bg-blue-900 transition btn-action">進入管理系統</button>
       </form>
     </div>
   </div>
 
-  <!-- 3. 管理後台課程列表 -->
-  <div id="view-admin-list" class="app-view hidden max-w-6xl mx-auto p-6 animate-fade-in text-gray-800 font-bold">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 border-b pb-6 gap-6 font-black">
+  <!-- 3. 管理後台主列表 -->
+  <div id="view-admin-list" class="app-view hidden max-w-7xl mx-auto p-6 animate-fade-in font-bold">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 border-b-2 pb-6 gap-6">
       <div>
-        <h1 class="text-3xl font-black text-blue-900">訓練課程管理中心</h1>
-        <p class="text-gray-500 mt-1 font-black">管理課程、報名名冊與會議室設定</p>
+        <h1 class="text-3xl font-bold text-blue-900">訓練管理首頁</h1>
+        <p class="text-gray-500 mt-2">管理課程、報名名冊、會議室與員工檔案</p>
       </div>
-      <div class="flex flex-wrap gap-3 font-bold">
-        <button type="button" onclick="window.toggleSettings(true)" class="text-sm bg-indigo-600 text-white font-bold px-6 py-3 rounded-full hover:bg-indigo-700 transition flex items-center gap-2 shadow-md btn-action font-black font-black">⚙️ 系統設定 & 全員主檔案</button>
-        <button type="button" onclick="window.handleLogout()" class="text-sm bg-gray-200 text-gray-700 font-bold px-6 py-3 rounded-full hover:bg-gray-300 transition shadow-sm btn-action font-black">登出</button>
+      <div class="flex gap-4">
+        <button type="button" onclick="window.toggleSettings(true)" class="bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition shadow-md btn-action flex items-center gap-2">⚙️ 系統設定與主檔案</button>
+        <button type="button" onclick="window.handleLogout()" class="bg-gray-200 text-gray-700 px-6 py-3 rounded-full hover:bg-gray-300 transition btn-action">登出</button>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 font-black">
-      <!-- 課程表單 -->
-      <div class="lg:col-span-4 bg-white p-8 rounded-[2rem] shadow-xl border-t-4 border-blue-600 h-fit font-bold font-black">
-        <h2 id="course-form-title" class="text-2xl font-black mb-8 text-blue-800 flex items-center gap-3 font-black font-black"><span class="text-3xl">✨</span>新增課程</h2>
-        <form onsubmit="window.handleSaveCourse(event)" class="space-y-6 font-bold font-black">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <!-- 新增/編輯課程表單 -->
+      <div class="lg:col-span-4 bg-white p-8 rounded-3xl shadow-xl border-t-4 border-blue-600 h-fit">
+        <h2 id="course-form-title" class="text-2xl font-bold mb-8 text-blue-800 flex items-center gap-2"><span class="text-3xl">✨</span>新增課程</h2>
+        <form onsubmit="window.handleSaveCourse(event)" class="space-y-6">
           <input type="hidden" id="form-course-id" />
-          <div><label class="block text-sm font-bold mb-2 text-gray-600 font-black">課程名稱</label><input type="text" id="form-name" required class="w-full border-2 border-gray-100 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 font-black" /></div>
-          <div><label class="block text-sm font-bold mb-2 text-gray-600 font-black font-black">講師</label><input type="text" id="form-lecturer" required class="w-full border-2 border-gray-100 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 font-black" /></div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-2">課程名稱</label>
+            <input type="text" id="form-name" required class="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-blue-500 bg-gray-50" />
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-2">講師</label>
+            <input type="text" id="form-lecturer" required class="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-blue-500 bg-gray-50" />
+          </div>
           
-          <div class="bg-blue-50 p-5 rounded-2xl border-2 border-blue-100 font-black shadow-inner">
-            <label class="block text-sm font-black text-blue-900 mb-2 font-black font-black">📅 上課日期</label>
-            <input type="date" id="form-date" onchange="window.calcHours()" required class="w-full border-2 border-white rounded-xl p-3 text-lg font-bold outline-none mb-4 shadow-sm font-black font-black font-black" />
+          <div class="bg-blue-50 p-5 rounded-2xl border-2 border-blue-100 shadow-inner">
+            <label class="block text-sm text-blue-900 mb-2">📅 上課日期</label>
+            <input type="date" id="form-date" onchange="window.calcHours()" required class="w-full border-2 border-white rounded-xl p-3 text-lg outline-none mb-4" />
             
-            <div class="space-y-4 font-black">
+            <div class="space-y-4">
               <div>
-                <label class="block text-xs font-black text-blue-800 mb-1 font-black">⏰ 開始時間 (24H)</label>
-                <div class="grid grid-cols-2 gap-1 font-black">
-                  <select id="form-start-h" onchange="window.calcHours()" class="border-2 border-white rounded-l-xl p-2 text-sm font-black outline-none shadow-sm font-black font-black font-black"></select>
-                  <select id="form-start-m" onchange="window.calcHours()" class="border-2 border-white rounded-r-xl p-2 text-sm font-black outline-none shadow-sm font-black font-black font-black">
+                <label class="block text-xs text-blue-800 mb-1">⏰ 開始時間 (24H)</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <select id="form-start-h" onchange="window.calcHours()" class="border-2 border-white rounded-l-xl p-2 text-base outline-none cursor-pointer"></select>
+                  <select id="form-start-m" onchange="window.calcHours()" class="border-2 border-white rounded-r-xl p-2 text-base outline-none cursor-pointer">
                     <option value="00">00 分</option>
                     <option value="30">30 分</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label class="block text-xs font-black text-blue-800 mb-1 font-black font-black">🏁 結束時間 (24H)</label>
-                <div class="grid grid-cols-2 gap-1 font-black">
-                  <select id="form-end-h" onchange="window.calcHours()" class="border-2 border-white rounded-l-xl p-2 text-sm font-black outline-none shadow-sm font-black font-black font-black"></select>
-                  <select id="form-end-m" onchange="window.calcHours()" class="border-2 border-white rounded-r-xl p-2 text-sm font-black outline-none shadow-sm font-black font-black font-black">
+                <label class="block text-xs text-blue-800 mb-1">🏁 結束時間 (24H)</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <select id="form-end-h" onchange="window.calcHours()" class="border-2 border-white rounded-l-xl p-2 text-base outline-none cursor-pointer"></select>
+                  <select id="form-end-m" onchange="window.calcHours()" class="border-2 border-white rounded-r-xl p-2 text-base outline-none cursor-pointer">
                     <option value="00">00 分</option>
                     <option value="30">30 分</option>
                   </select>
@@ -139,186 +149,311 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-4 font-black">
-            <div><label class="block text-sm font-bold mb-2 text-gray-600 font-black font-black">總時數(H)</label><input type="number" id="form-hours" step="0.1" required readonly class="w-full border-2 border-gray-100 rounded-xl p-3 font-black text-lg bg-gray-100 text-center outline-none font-black font-black" /></div>
+          <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-bold mb-2 text-gray-600 font-black font-black">上課地點</label>
-              <select id="form-location" required class="w-full border-2 border-gray-100 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 bg-gray-50 font-black cursor-pointer font-black">
-                <option value="">請選擇地點</option>
+              <label class="block text-sm text-gray-600 mb-2">總時數(H)</label>
+              <input type="number" id="form-hours" step="0.1" required readonly class="w-full border-2 border-gray-200 rounded-xl p-3 text-lg bg-gray-100 text-center outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm text-gray-600 mb-2">上課地點</label>
+              <select id="form-location" required class="w-full border-2 border-gray-200 rounded-xl p-3 focus:border-blue-500 bg-gray-50 cursor-pointer">
+                <option value="">請點選地點</option>
               </select>
             </div>
           </div>
-          <button type="submit" id="form-submit-btn" class="w-full bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-blue-800 text-xl btn-action mt-4 font-black">建立雲端課程</button>
-          <button type="button" id="form-cancel-btn" onclick="window.resetCourseForm()" class="hidden w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-xl mt-2 btn-action font-black">取消編輯</button>
+          <button type="submit" id="form-submit-btn" class="w-full bg-blue-700 text-white text-xl py-4 rounded-2xl shadow-xl hover:bg-blue-800 btn-action mt-2">建立課程</button>
+          <button type="button" id="form-cancel-btn" onclick="window.resetCourseForm()" class="hidden w-full bg-gray-200 text-gray-700 py-3 rounded-xl mt-2 btn-action">取消編輯</button>
         </form>
       </div>
-      <!-- 列表 -->
-      <div class="lg:col-span-8 font-black">
-        <h2 class="text-2xl font-black mb-8 text-gray-800 border-l-8 border-gray-800 pl-4 font-black font-black">現有課程清單</h2>
-        <div id="course-list-container" class="space-y-6 font-black"></div>
+
+      <!-- 課程清單展示區 -->
+      <div class="lg:col-span-8">
+        <h2 class="text-2xl mb-8 text-gray-800 border-l-8 border-gray-800 pl-4">雲端課程列表</h2>
+        <div id="course-list-container" class="space-y-6"></div>
       </div>
     </div>
   </div>
 
-  <!-- 4. 單一課程詳情 -->
-  <div id="view-admin-detail" class="app-view hidden max-w-7xl mx-auto p-4 md:p-8 animate-fade-in text-gray-800 font-bold font-black">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 no-print gap-6 font-black font-black">
-      <button type="button" onclick="window.switchView('view-admin-list')" class="text-gray-600 bg-white border border-gray-200 px-6 py-3 rounded-full hover:bg-gray-50 font-bold shadow-md flex items-center btn-action font-black font-black font-black">← 返回清單</button>
-      <div class="flex gap-4 w-full md:w-auto text-white font-black font-black">
-        <button type="button" onclick="window.openManageModal()" class="bg-indigo-600 px-8 py-4 rounded-2xl font-black hover:bg-indigo-700 transition shadow-xl btn-action flex-1 md:flex-none font-black font-black">👥 管理報名名冊</button>
-        <button type="button" onclick="window.print()" class="bg-red-700 px-8 py-4 rounded-2xl font-black hover:bg-red-800 transition shadow-xl btn-action flex-1 md:flex-none font-black font-black">列印簽到表 (PDF)</button>
+  <!-- 4. 單一課程詳情 (🎫 邀請與簽到管理) -->
+  <div id="view-admin-detail" class="app-view hidden max-w-7xl mx-auto p-4 md:p-8 animate-fade-in font-bold">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 no-print gap-4">
+      <button type="button" onclick="window.switchView('view-admin-list')" class="text-gray-600 bg-white border-2 border-gray-200 px-6 py-3 rounded-full hover:bg-gray-50 shadow-sm btn-action">← 返回課程清單</button>
+      <div class="flex gap-4 w-full md:w-auto">
+        <button type="button" onclick="window.openManageModal()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl hover:bg-indigo-700 shadow-lg btn-action flex-1 md:flex-none">👥 管理報名名冊</button>
+        <button type="button" onclick="window.print()" class="bg-red-600 text-white px-8 py-3 rounded-2xl hover:bg-red-700 shadow-lg btn-action flex-1 md:flex-none">列印簽到表 (PDF)</button>
       </div>
     </div>
     
-    <div id="printable-area" class="bg-white p-12 rounded-[2.5rem] shadow-2xl border border-gray-100 min-w-max text-black print:p-0 print:border-0 print:shadow-none font-black font-black">
-      <div class="flex items-center justify-center gap-10 mb-10 border-b-[4px] border-black pb-8 font-black font-black">
-        <div class="w-[120px] text-right font-black"><img id="print-logo" src="" class="w-24 h-24 object-contain inline-block font-black font-black font-black" /></div>
-        <div class="text-left font-black">
-          <div class="text-[32px] tracking-[0.4em] uppercase font-black mb-1 font-black font-black">偉勝乾燥工業股份有限公司</div>
-          <div class="text-[20px] tracking-widest uppercase text-gray-600 font-black font-black">WEISUN INDUSTRIAL CO., LTD.</div>
+    <!-- QR 碼區域 (由 JS 動態產生) -->
+    <div id="detail-actions-area" class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 no-print"></div>
+
+    <!-- 可列印的簽到表區域 -->
+    <div id="printable-area" class="bg-white p-12 rounded-3xl shadow-2xl border border-gray-200 min-w-max text-black print:p-0 print:border-0 print:shadow-none">
+      <div class="flex items-center justify-center gap-10 mb-8 border-b-4 border-black pb-8">
+        <div class="w-[120px] text-right"><img id="print-logo" src="" class="w-24 h-24 object-contain inline-block" /></div>
+        <div class="text-left">
+          <div class="text-3xl tracking-widest uppercase mb-1">偉勝乾燥工業股份有限公司</div>
+          <div class="text-xl tracking-widest uppercase text-gray-700">WEISUN INDUSTRIAL CO., LTD.</div>
         </div>
       </div>
-      <div class="text-center mb-8 font-black font-black font-black"><h1 class="text-[26px] font-black tracking-[0.3em] pb-3 inline-block border-b-2 border-black px-8 font-black font-black">教育訓練學員名冊</h1></div>
-      <table class="w-full border-collapse border-[3px] border-black text-[15px] font-bold font-black">
-        <tbody id="print-table-header" class="font-black"></tbody>
-        <tbody id="print-table-body" class="font-black"></tbody>
+      <div class="text-center mb-8"><h1 class="text-2xl tracking-[0.3em] pb-2 inline-block border-b-2 border-black px-8">教育訓練學員名冊</h1></div>
+      <table class="w-full border-collapse border-4 border-black text-sm">
+        <tbody id="print-table-header"></tbody>
+        <tbody id="print-table-body"></tbody>
       </table>
-      <div class="text-right mt-10 font-black font-black text-lg tracking-widest font-black font-black">QP-02-02-D</div>
+      <div class="text-right mt-8 text-lg tracking-widest">QP-02-02-D</div>
     </div>
   </div>
 
-  <!-- 報名頁面 -->
-  <div id="view-enroll" class="app-view hidden min-h-screen bg-gray-100 flex items-center justify-center p-4 font-black">
-    <div class="bg-white w-full max-w-lg p-10 rounded-[3.5rem] shadow-2xl border-t-[10px] border-blue-600 relative mt-10 animate-fade-in font-black">
-      <div class="text-center mb-10 font-black font-black">
-        <img id="enroll-logo" src="" class="w-24 h-24 object-contain mx-auto bg-white p-4 rounded-full -mt-24 shadow-xl border-4 border-blue-50 mb-4 font-black font-black" />
-        <h2 class="text-4xl font-black tracking-wider text-gray-800 font-black font-black">教育訓練報名表</h2>
+  <!-- 5. 員工報名頁面 -->
+  <div id="view-enroll" class="app-view hidden min-h-screen bg-gray-100 flex items-center justify-center p-4 font-bold">
+    <div class="bg-white w-full max-w-lg p-10 rounded-3xl shadow-2xl border-t-[12px] border-blue-600 relative mt-12 animate-fade-in">
+      <div class="text-center mb-8">
+        <img id="enroll-logo" src="" class="w-24 h-24 object-contain mx-auto bg-white p-4 rounded-full -mt-24 shadow-xl border-4 border-blue-50 mb-4" />
+        <h2 class="text-3xl tracking-wider text-gray-800">教育訓練報名表</h2>
       </div>
-      <div id="enroll-warning" class="hidden mb-8 border-[4px] border-red-600 bg-red-50 p-5 rounded-2xl text-center shadow-lg font-black font-black">
-         <p class="text-red-700 text-2xl font-black mb-1 font-black font-black font-black">⚠️ 您已填寫過資料</p>
-         <p class="text-red-600 text-base font-bold font-black font-black font-black">下方已載入您目前儲存的報名紀錄</p>
+      <div id="enroll-warning" class="hidden mb-6 border-4 border-red-500 bg-red-50 p-4 rounded-2xl text-center shadow-md">
+         <p class="text-red-700 text-xl mb-1">⚠️ 您已填寫過資料</p>
+         <p class="text-red-600 text-sm">下方已載入您儲存的報名狀態</p>
       </div>
-      <div class="bg-blue-50 p-6 rounded-[2rem] mb-10 border-2 border-blue-100 font-black font-black font-black">
-        <h3 id="enroll-course-name" class="font-black text-blue-900 text-2xl mb-3 border-b-2 border-blue-200 pb-3 font-black font-black">載入中...</h3>
-        <p id="enroll-course-info" class="text-blue-800 text-lg font-black font-bold font-black font-black font-black"></p>
+      <div class="bg-blue-50 p-6 rounded-2xl mb-8 border-2 border-blue-100">
+        <h3 id="enroll-course-name" class="text-blue-900 text-xl mb-2 border-b-2 border-blue-200 pb-2">載入中...</h3>
+        <p id="enroll-course-info" class="text-blue-800 text-lg"></p>
       </div>
-      <form onsubmit="window.handleEnrollSubmit(event)" class="space-y-6 font-black font-black font-black">
-        <div><label class="block text-lg font-black mb-2 text-gray-700 font-black font-black font-black">員工編號 (工號) <span class="text-red-500">*</span></label><input type="text" id="enroll-empId" oninput="window.handleEmpIdInput(event)" onkeydown="if(event.keyCode==13){event.preventDefault();}" required placeholder="例如: Wxxxx" class="w-full border-2 border-gray-300 rounded-xl p-3 uppercase font-black outline-none focus:ring-2 focus:ring-blue-600 text-lg shadow-sm font-black font-black font-black font-black" autocomplete="off" /></div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 font-black font-black">
-          <div><label class="block text-sm font-black mb-2 text-gray-400 font-black font-black">員工姓名</label><input type="text" id="enroll-name" class="w-full border-2 border-gray-200 rounded-xl p-3 font-black outline-none bg-gray-100 text-gray-500 text-lg font-black font-black font-black" readonly /></div>
-          <div><label class="block text-sm font-black mb-2 text-gray-400 font-black font-black font-black">所屬單位</label><input type="text" id="enroll-dept-display" class="w-full border-2 border-gray-100 rounded-xl p-3 font-black outline-none bg-gray-100 text-gray-500 text-lg font-black font-black font-black" readonly /><input type="hidden" id="enroll-dept" /></div>
+      <form onsubmit="window.handleEnrollSubmit(event)" class="space-y-6">
+        <div>
+          <label class="block text-lg mb-2 text-gray-700">員工編號 (工號) <span class="text-red-500">*</span></label>
+          <input type="text" id="enroll-empId" oninput="window.handleEmpIdInput(event)" onkeydown="if(event.keyCode==13){event.preventDefault();}" required placeholder="例如: W0254" class="w-full border-2 border-gray-300 rounded-xl p-4 uppercase outline-none focus:border-blue-600 text-xl shadow-sm bg-gray-50" autocomplete="off" />
         </div>
-        <div class="pt-2 font-black font-black font-black">
-          <label class="block text-xl font-black mb-4 text-gray-700 font-black font-black font-black font-black font-black">是否參加本次課程？</label>
-          <div class="flex gap-4 font-black font-black">
-            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer hover:bg-blue-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 transition shadow-sm font-black font-black font-black"><input type="radio" id="isAttendingY" name="isAttending" value="Y" checked class="w-5 h-5 text-blue-600 font-black font-black" /> <span class="ml-3 font-black text-lg text-gray-700 font-black font-black">參加</span></label>
-            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer hover:bg-red-50 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 transition shadow-sm font-black font-black font-black"><input type="radio" id="isAttendingN" name="isAttending" value="N" class="w-5 h-5 text-red-600 font-black font-black" /> <span class="ml-3 font-black text-lg text-gray-700 font-black font-black">不參加</span></label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div><label class="block text-sm mb-2 text-gray-500">員工姓名</label><input type="text" id="enroll-name" class="w-full border-2 border-gray-200 rounded-xl p-3 outline-none bg-gray-100 text-gray-500 text-lg" readonly /></div>
+          <div><label class="block text-sm mb-2 text-gray-500">所屬單位</label><input type="text" id="enroll-dept-display" class="w-full border-2 border-gray-200 rounded-xl p-3 outline-none bg-gray-100 text-gray-500 text-lg" readonly /><input type="hidden" id="enroll-dept" /></div>
+        </div>
+        <div class="pt-2">
+          <label class="block text-xl mb-4 text-gray-700">是否參加本次課程？</label>
+          <div class="flex gap-4">
+            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer hover:bg-blue-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 transition shadow-sm"><input type="radio" id="isAttendingY" name="isAttending" value="Y" checked class="w-6 h-6 text-blue-600" /> <span class="ml-3 text-lg text-gray-700">參加</span></label>
+            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer hover:bg-red-50 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 transition shadow-sm"><input type="radio" id="isAttendingN" name="isAttending" value="N" class="w-6 h-6 text-red-600" /> <span class="ml-3 text-lg text-gray-700">不參加</span></label>
           </div>
         </div>
-        <div class="pt-4 font-black font-black font-black font-black"><button type="submit" class="w-full bg-blue-600 text-white font-black text-xl py-4 rounded-xl shadow-lg btn-action border-none font-black font-black font-black font-black uppercase">確認送出報名資料</button></div>
+        <div class="pt-4"><button type="submit" class="w-full bg-blue-600 text-white text-2xl py-4 rounded-xl shadow-lg btn-action border-none">確認送出報名</button></div>
       </form>
+    </div>
+  </div>
+
+  <!-- 報名成功畫面 -->
+  <div id="view-enroll-success" class="app-view hidden min-h-screen bg-gray-50 flex items-center justify-center p-4 font-bold">
+    <div class="bg-white w-full max-w-md p-12 rounded-3xl shadow-2xl border-t-[12px] border-green-500 text-center animate-fade-in">
+      <div class="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner border-4 border-green-200"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="6" d="M5 13l4 4L19 7"></path></svg></div>
+      <h2 class="text-4xl mb-8 text-gray-800">報名成功！</h2>
+      <div class="bg-red-50 py-4 px-4 rounded-2xl border-4 border-red-100 mb-6 shadow-sm"><p class="text-xl text-red-600 tracking-widest">現在可以關閉此網頁</p></div>
+    </div>
+  </div>
+
+  <!-- 6. 現場簽到板 -->
+  <div id="view-sign" class="app-view hidden min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 font-bold">
+    <div class="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl relative mt-12 border-t-[8px] border-green-500 animate-fade-in">
+      <div class="text-center mb-8 border-b-2 border-dashed border-gray-200 pb-6">
+        <img id="sign-logo" src="" class="w-20 h-20 object-contain mx-auto bg-white p-3 rounded-full -mt-20 shadow-xl border-4 mb-4" />
+        <h2 class="text-3xl text-green-700 tracking-wider">課程現場簽到板</h2>
+        <p id="sign-course-name" class="text-gray-800 mt-3 bg-green-50 inline-block px-6 py-2 rounded-full border border-green-200">載入中...</p>
+      </div>
+      <div id="sign-list-container">
+        <div class="mb-6"><input type="text" id="sign-search" oninput="window.renderSignList()" placeholder="🔍 搜尋工號或姓名..." class="w-full border-2 border-blue-300 rounded-2xl p-4 text-xl outline-none bg-blue-50 focus:border-blue-600 transition shadow-inner" /></div>
+        <div id="unsigned-list" class="bg-gray-50 border-2 border-gray-200 rounded-2xl p-3 max-h-[40vh] overflow-y-auto space-y-3 shadow-inner custom-scrollbar"></div>
+        <div id="signed-list-container" class="mt-8 pt-6 border-t-2 border-dashed border-gray-300 hidden">
+          <p class="text-sm text-gray-500 mb-4 flex justify-between px-2"><span>✅ 已完成簽到人員</span><span id="signed-count" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs"></span></p>
+          <div id="signed-list" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1"></div>
+        </div>
+      </div>
+      <!-- 畫布區域 -->
+      <div id="signature-pad-container" class="hidden animate-fade-in text-center">
+        <div class="mb-6 bg-blue-50 p-4 rounded-2xl border border-blue-200 shadow-sm text-gray-600">正在為 <span id="sign-current-user" class="text-2xl text-blue-900 mx-2"></span> 進行簽名</div>
+        <canvas id="sig-canvas" width="350" height="200" class="border-2 border-dashed border-gray-400 bg-gray-50 rounded-2xl cursor-crosshair touch-none w-full max-w-[350px] mx-auto mb-6"></canvas>
+        <div class="flex w-full justify-between gap-3">
+          <button type="button" onclick="window.clearCanvas()" class="flex-1 py-3 bg-red-50 text-red-600 rounded-xl btn-action border border-red-200">🗑️ 清除</button>
+          <button type="button" id="btn-undo" onclick="window.undoCanvas()" class="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl btn-action border border-gray-300">↩️ 撤銷</button>
+          <button type="button" onclick="window.saveSignature()" class="flex-[1.5] py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-xl shadow-xl btn-action">✅ 確認送出</button>
+        </div>
+        <button type="button" onclick="window.cancelSign()" class="w-full mt-6 py-2 text-red-500 underline bg-transparent btn-action">返回名單</button>
+      </div>
     </div>
   </div>
 
   <!-- ⚙️ 系統設定 Modal -->
-  <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[15000] no-print backdrop-blur-sm hidden p-4">
-    <div class="bg-white p-8 md:p-10 rounded-[3rem] shadow-2xl w-full max-w-6xl max-h-[90vh] animate-fade-in overflow-y-auto custom-scrollbar relative font-bold text-gray-800 font-black font-black">
-      <button type="button" onclick="window.toggleSettings(false)" class="absolute top-8 right-8 text-gray-300 hover:text-red-500 font-black text-4xl border-none bg-transparent btn-action font-black font-black">✕</button>
-      <h3 class="text-3xl font-black mb-10 border-b-2 pb-6 flex items-center gap-3 text-indigo-900 font-black font-black font-black"><span>⚙️</span> 系統設定與全員檔案管理</h3>
+  <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[15000] no-print backdrop-blur-sm hidden p-4 font-bold">
+    <div class="bg-white p-8 md:p-10 rounded-[3rem] shadow-2xl w-full max-w-6xl max-h-[90vh] animate-fade-in overflow-y-auto custom-scrollbar relative text-gray-800">
+      <button type="button" onclick="window.toggleSettings(false)" class="absolute top-6 right-6 text-gray-400 hover:text-red-500 text-3xl btn-action">✕</button>
+      <h3 class="text-3xl mb-8 border-b-2 pb-4 flex items-center gap-3 text-indigo-900"><span>⚙️</span> 系統設定與全員檔案管理</h3>
       
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 font-black font-black">
-        <div class="lg:col-span-4 space-y-6 font-black font-black">
-          <div class="bg-gray-50 p-6 rounded-[2rem] border-2 border-gray-100 shadow-sm font-bold font-black"><label class="block text-sm font-black mb-2 text-gray-600 uppercase tracking-widest font-black font-black">🌐 正式網址</label><input type="text" id="setting-url" class="w-full border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 font-bold shadow-sm font-black font-black font-black font-black" /></div>
-          <div class="bg-gray-50 p-6 rounded-[2rem] border-2 border-gray-100 shadow-sm font-bold font-black font-black"><label class="block text-sm font-black mb-2 text-gray-600 uppercase tracking-widest font-black font-black">🔑 修改密碼</label><input type="password" id="setting-pass" class="w-full border-2 border-white rounded-xl p-3 outline-none focus:border-red-500 font-bold shadow-sm font-black font-black font-black" placeholder="不改請留空" /></div>
-          <div class="bg-gray-50 p-6 rounded-[2rem] border-2 border-gray-100 shadow-sm font-bold font-black font-black"><label class="block text-sm font-black mb-3 text-gray-600 uppercase font-black font-black">🖼️ 企業 LOGO</label><div class="flex items-center gap-4 font-black font-black"><div class="w-20 h-20 border-4 border-white rounded-2xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-md font-black font-black"><img id="setting-logo-preview" src="" class="w-full h-full object-contain font-black" /></div><input type="file" accept="image/*" onchange="window.handleLogoUpload(event)" class="text-xs w-full font-bold cursor-pointer font-black" /></div></div>
-          <div class="bg-gray-50 p-6 rounded-[2rem] border-2 border-gray-100 shadow-sm font-bold font-black font-black font-black font-black"><label class="block text-sm font-black mb-2 text-indigo-800 font-black font-black">🏢 部門管理 (一行一個)</label><textarea id="setting-departments" class="w-full h-32 border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 text-sm custom-scrollbar shadow-inner font-bold font-black font-black"></textarea></div>
-          <div class="bg-gray-50 p-6 rounded-[2rem] border-2 border-gray-100 shadow-sm font-bold font-black font-black font-black font-black"><label class="block text-sm font-black mb-2 text-blue-900 font-black uppercase font-black font-black">🏢 會議室管理 (一行一個)</label><textarea id="setting-meeting-rooms" class="w-full h-32 border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 text-sm custom-scrollbar shadow-inner font-bold font-black font-black font-black"></textarea></div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <!-- 左欄設定 -->
+        <div class="lg:col-span-4 space-y-6">
+          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-gray-600">🌐 正式網址</label><input type="text" id="setting-url" class="w-full border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 shadow-sm" /></div>
+          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-gray-600">🔑 修改密碼</label><input type="password" id="setting-pass" class="w-full border-2 border-white rounded-xl p-3 outline-none focus:border-red-500 shadow-sm" placeholder="不改請留空" /></div>
+          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-3 text-gray-600">🖼️ 企業 LOGO</label><div class="flex items-center gap-4"><div class="w-20 h-20 border-2 border-white rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-md"><img id="setting-logo-preview" src="" class="w-full h-full object-contain" /></div><input type="file" accept="image/*" onchange="window.handleLogoUpload(event)" class="text-xs w-full cursor-pointer" /></div></div>
+          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-indigo-800">🏢 部門管理 (一行一個)</label><textarea id="setting-departments" class="w-full h-32 border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 text-sm custom-scrollbar shadow-inner"></textarea></div>
+          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-blue-900">🏢 會議室管理 (一行一個)</label><textarea id="setting-meeting-rooms" class="w-full h-32 border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 text-sm custom-scrollbar shadow-inner"></textarea></div>
         </div>
 
-        <div class="lg:col-span-8 bg-indigo-50 p-8 rounded-[3rem] border-2 border-indigo-100 shadow-xl flex flex-col font-black font-black">
-          <div class="flex justify-between items-center mb-6 font-black font-black font-black">
-            <h4 class="text-2xl font-black text-indigo-900 font-black font-black font-black">👥 全公司員工主檔案</h4>
-            <div class="flex gap-2 font-black font-black font-black"><button type="button" onclick="window.clearAllMasterEmps()" class="text-xs bg-red-600 text-white px-4 py-2 rounded-full hover:bg-red-700 font-bold shadow-lg btn-action font-black">🗑️ 刪除全部</button><button type="button" onclick="window.exportMasterCSV()" class="text-xs bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 font-bold shadow-lg btn-action font-black font-black">📤 匯出 CSV</button></div>
+        <!-- 右欄檔案 -->
+        <div class="lg:col-span-8 bg-indigo-50 p-8 rounded-3xl border border-indigo-100 shadow-xl flex flex-col">
+          <div class="flex justify-between items-center mb-6">
+            <h4 class="text-2xl text-indigo-900">👥 全公司員工主檔案</h4>
+            <div class="flex gap-2"><button type="button" onclick="window.clearAllMasterEmps()" class="text-xs bg-red-600 text-white px-4 py-2 rounded-full hover:bg-red-700 shadow-sm btn-action">🗑️ 清空資料</button><button type="button" onclick="window.exportMasterCSV()" class="text-xs bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 shadow-sm btn-action">📤 匯出 CSV</button></div>
           </div>
           
-          <div class="bg-white p-6 rounded-[2.5rem] border-2 border-indigo-100 mb-6 shadow-md text-gray-700 font-bold font-black font-black font-black">
-            <div class="flex items-center gap-2 mb-4 font-black font-black font-black font-black"><span id="master-form-mode-icon" class="text-indigo-600 text-2xl font-black font-black font-black font-black">➕</span><span id="master-form-title" class="text-xl font-black text-indigo-900 font-black font-black font-black">單筆基本資料維護</span><button type="button" id="btn-cancel-master-edit" onclick="window.resetMasterForm()" class="hidden text-xs text-red-500 underline font-black ml-auto bg-transparent btn-action uppercase font-black font-black font-black">取消編輯</button></div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 font-black font-black font-black font-black"><input type="text" id="master-empId" placeholder="工號 (Wxxxx)" class="border-2 border-gray-100 p-3.5 rounded-xl uppercase font-black text-lg focus:border-indigo-500 outline-none bg-gray-50 font-black font-black font-black" /><input type="text" id="master-name" placeholder="姓名" class="border-2 border-gray-100 p-3.5 rounded-xl font-black text-lg focus:border-indigo-500 outline-none bg-gray-50 font-black font-black font-black" /><select id="master-dept" class="border-2 border-gray-100 p-3.5 rounded-xl text-lg outline-none bg-gray-50 font-black cursor-pointer font-black font-black font-black"></select></div>
-            <button type="button" onclick="window.handleMasterFormSubmit()" id="btn-save-master-emp" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xl hover:bg-indigo-700 shadow-xl btn-action uppercase font-black font-black font-black font-black">💾 確認存入主檔案</button>
+          <div class="bg-white p-6 rounded-3xl border border-indigo-100 mb-6 shadow-md text-gray-700">
+            <div class="flex items-center gap-2 mb-4"><span id="master-form-mode-icon" class="text-indigo-600 text-2xl">➕</span><span id="master-form-title" class="text-xl text-indigo-900">單筆基本資料維護</span><button type="button" id="btn-cancel-master-edit" onclick="window.resetMasterForm()" class="hidden text-xs text-red-500 underline ml-auto bg-transparent btn-action">取消編輯</button></div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"><input type="text" id="master-empId" placeholder="工號 (Wxxxx)" class="border-2 border-gray-100 p-3 rounded-xl uppercase text-lg focus:border-indigo-500 outline-none bg-gray-50" /><input type="text" id="master-name" placeholder="姓名" class="border-2 border-gray-100 p-3 rounded-xl text-lg focus:border-indigo-500 outline-none bg-gray-50" /><select id="master-dept" class="border-2 border-gray-100 p-3 rounded-xl text-lg outline-none bg-gray-50 cursor-pointer"></select></div>
+            <button type="button" onclick="window.handleMasterFormSubmit()" id="btn-save-master-emp" class="w-full bg-indigo-600 text-white py-3 rounded-xl text-lg hover:bg-indigo-700 shadow-md btn-action">💾 確認存入主檔案</button>
           </div>
 
-          <div class="bg-indigo-100 bg-opacity-30 p-6 rounded-[2rem] border-2 border-dashed border-indigo-200 mb-6 font-black font-black">
-            <div class="flex justify-between items-center mb-3 font-black font-black font-black"><p class="text-[13px] text-indigo-800 font-black uppercase font-black font-black">⚡ CSV 覆蓋 或 Excel 直接貼上更新</p><div class="flex gap-2 font-black font-black font-black font-black font-black font-black"><input type="file" id="csv-upload-input" accept=".csv" class="hidden" onchange="window.handleCSVUpload(event)" /><button type="button" onclick="window.triggerCSVUpload()" class="text-sm bg-red-100 text-red-700 px-5 py-2.5 rounded-full hover:bg-red-200 font-black border-2 border-red-200 shadow-md btn-action font-black">📁 上傳 CSV 覆蓋</button></div></div>
-            <textarea id="setting-master-import" placeholder="貼入 Excel 內容 (第一欄:工號, 第二欄:姓名, 第三欄:部門)..." class="w-full h-12 border-2 border-white rounded-2xl p-4 text-xs outline-none focus:border-indigo-400 font-mono shadow-inner bg-white bg-opacity-50 font-black font-black font-black"></textarea>
-            <button type="button" onclick="window.importToMaster()" class="w-full mt-3 bg-indigo-50 text-indigo-700 border-2 border-indigo-200 font-black py-2 rounded-xl text-sm hover:bg-indigo-100 btn-action font-black font-black font-black">⬇️ 解析文字框內容並批次更新</button>
+          <div class="bg-indigo-100 bg-opacity-50 p-6 rounded-3xl border border-dashed border-indigo-300 mb-6">
+            <div class="flex justify-between items-center mb-3"><p class="text-sm text-indigo-800">⚡ CSV 覆蓋 或 Excel 直接貼上更新</p><div class="flex gap-2"><input type="file" id="csv-upload-input" accept=".csv" class="hidden" onchange="window.handleCSVUpload(event)" /><button type="button" onclick="window.triggerCSVUpload()" class="text-sm bg-red-100 text-red-700 px-4 py-2 rounded-full hover:bg-red-200 border border-red-300 shadow-sm btn-action">📁 上傳 CSV 覆蓋</button></div></div>
+            <textarea id="setting-master-import" placeholder="請貼上 Excel 內容 (第一欄:工號, 第二欄:姓名, 第三欄:部門)..." class="w-full h-16 border-2 border-white rounded-xl p-3 text-sm outline-none focus:border-indigo-400 font-mono shadow-inner bg-white"></textarea>
+            <button type="button" onclick="window.importToMaster()" class="w-full mt-3 bg-indigo-50 text-indigo-700 border border-indigo-300 py-2 rounded-lg text-sm hover:bg-indigo-100 btn-action">⬇️ 批次解析文字框並加入</button>
           </div>
 
-          <div class="bg-white border-2 border-indigo-50 rounded-[2rem] overflow-hidden flex-1 shadow-2xl font-bold font-bold text-gray-700 font-black">
-             <div class="bg-indigo-100 px-6 py-3 text-[14px] font-black flex justify-between border-b-2 border-indigo-200 text-indigo-900 items-center font-black font-black"><span>員工主檔案清單</span><span id="master-count" class="bg-white px-4 py-1 rounded-full font-black text-indigo-800 shadow-sm text-sm font-black">共 0 人</span></div>
-             <div class="max-h-[30vh] overflow-y-auto text-xs custom-scrollbar font-black font-black font-black font-black font-black font-black font-black font-black font-black"><table class="w-full text-left border-collapse font-bold font-black"><thead class="sticky top-0 bg-gray-50 border-b-2 border-gray-100 shadow-sm z-10 font-black text-gray-600 font-black"><tr><th class="p-4 font-black">工號</th><th class="p-4 font-black">姓名</th><th class="p-4 font-black">部門</th><th class="p-4 text-center font-black font-black font-black">操作</th></tr></thead><tbody id="master-table-body" class="font-black"></tbody></table></div>
+          <div class="bg-white border border-indigo-100 rounded-2xl overflow-hidden flex-1 shadow-lg text-gray-700">
+             <div class="bg-indigo-50 px-6 py-3 text-sm flex justify-between border-b border-indigo-100 text-indigo-900 items-center"><span>全體員工清單</span><span id="master-count" class="bg-white px-3 py-1 rounded-full text-indigo-800 shadow-sm text-xs border border-indigo-100">共 0 人</span></div>
+             <div class="max-h-[30vh] overflow-y-auto text-sm custom-scrollbar"><table class="w-full text-left border-collapse"><thead class="sticky top-0 bg-gray-100 border-b border-gray-200 shadow-sm z-10 text-gray-600"><tr><th class="p-3">工號</th><th class="p-3">姓名</th><th class="p-3">部門</th><th class="p-3 text-center">操作</th></tr></thead><tbody id="master-table-body"></tbody></table></div>
           </div>
         </div>
       </div>
-      <div class="pt-10 border-t-2 border-gray-100 mt-10 text-center font-black">
-        <button type="button" onclick="window.saveSettings()" class="w-full max-w-md bg-blue-600 text-white font-black text-2xl py-5 rounded-[2rem] shadow-2xl hover:bg-blue-700 transition btn-action border-none uppercase tracking-widest font-black font-black font-black font-black">💾 儲存全域設定並同步雲端</button>
+      <div class="pt-8 border-t-2 border-gray-100 mt-8 text-center">
+        <button type="button" onclick="window.saveSettings()" class="w-full max-w-md bg-blue-600 text-white text-xl py-4 rounded-2xl shadow-xl hover:bg-blue-700 transition btn-action">💾 儲存設定並同步雲端</button>
       </div>
     </div>
   </div>
 
+  <!-- 👥 管理名冊 Modal -->
+  <div id="manage-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[20000] no-print backdrop-blur-sm hidden p-4 font-bold">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative animate-fade-in overflow-hidden text-gray-800">
+      <button type="button" onclick="window.closeManageModal()" class="absolute top-6 right-6 text-gray-400 hover:text-red-500 text-3xl btn-action">✕</button>
+      <h3 class="text-2xl mb-4 border-b-2 border-gray-100 pb-4 flex items-center gap-2"><span>👥</span> 報名名冊管理</h3>
+      <div class="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
+        <div class="bg-blue-50 p-6 rounded-2xl border border-blue-200">
+           <label class="block text-lg text-blue-900 mb-2">➕ 輸入工號新增報名</label>
+           <div class="flex gap-4">
+              <input type="text" id="course-manual-empId" placeholder="請輸入工號 (Wxxxx)" class="flex-1 border-2 border-white p-3 rounded-xl uppercase outline-none focus:border-blue-400 shadow-inner" />
+              <button type="button" onclick="window.addAttendeeToCourse()" class="bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 shadow-md btn-action text-lg">加入</button>
+           </div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm flex-1 text-gray-700">
+          <div class="bg-gray-100 px-5 py-3 border-b text-sm flex justify-between items-center text-gray-700">
+             <span>目前已報名清單</span>
+             <span id="course-manage-count" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs shadow-sm border border-blue-200">0 人</span>
+          </div>
+          <div class="max-h-[50vh] overflow-y-auto custom-scrollbar">
+             <table class="w-full text-left text-sm border-collapse">
+               <thead class="sticky top-0 bg-gray-50 border-b shadow-sm z-10 text-gray-600">
+                 <tr><th class="p-3">工號</th><th class="p-3">姓名</th><th class="p-3">單位</th><th class="p-3 text-center">操作</th></tr>
+               </thead>
+               <tbody id="course-manage-table-body"></tbody>
+             </table>
+          </div>
+        </div>
+      </div>
+      <div class="pt-6 border-t mt-4"><button type="button" onclick="window.handleSaveCourseAttendees()" id="btn-save-course-atts" class="w-full bg-green-600 text-white py-4 rounded-xl hover:bg-green-700 shadow-lg btn-action text-xl">💾 儲存變更並同步</button></div>
+    </div>
+  </div>
+
+  <!-- JavaScript 邏輯區 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // ---------------------------------------------------------
-    // 1. 基礎工具函數 (置頂以防 undefined)
-    // ---------------------------------------------------------
-    window.generateId = function() { return Math.random().toString(36).substring(2, 11); };
-    window.formatDate = (ds) => { if (!ds) return ''; const d = new Date(ds); return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    // ----------------------------------------------------------------------
+    // ✅ 步驟一：將所有「共用與工具函數」率先掛載到 window，避免 is not a function 錯誤
+    // ----------------------------------------------------------------------
+    window.generateId = () => Math.random().toString(36).substring(2, 11);
     
-    // ---------------------------------------------------------
-    // 2. Firebase 初始化
-    // ---------------------------------------------------------
-    const firebaseConfig = { apiKey: "AIzaSyCbI5Co6jCusLm3327TZhyGmtxjPLmxCL8", authDomain: "weisun-workhour.firebaseapp.com", projectId: "weisun-workhour", storageBucket: "weisun-workhour.firebasestorage.app", messagingSenderId: "860504444963", appId: "1:860504444963:web:7872172f271c2110a92196" };
-    const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app), appId = "weisun-training-app";
+    window.formatDate = (ds) => { 
+        if (!ds) return ''; 
+        const d = new Date(ds); 
+        return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; 
+    };
 
-    // ---------------------------------------------------------
-    // 3. 全域掛載函數
-    // ---------------------------------------------------------
-    window.g_courses = []; window.g_records = []; 
-    window.g_config = { password: '888', publicUrl: '', logoData: '', departments: [], meetingRooms: [], employees: [] };
-    window.g_activeCourseId = null; window.g_editingMasterEid = null; window.g_courseManageAttendees = [];
-    const DEFAULT_LOGO = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIj4KICA8IS0tIFJlZCBVIHN5bWJvbHMgLS0+CiAgPHBhdGggZD0iTTE1MCAxNjAgdjYwIGE0MCA0MCAwIDAgMCA4MCAwIHYtODAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0U2MDAxMiIgc3Ryb2tlLXdpZHRoPSIyNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPHBhdGggZD0iTTI1MCAxNjAgdi02MCBhNDAgNDAgMCAwIDAgLTgwIDAgdjgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNFNjAwMTIiIHN0cm9rZS13aWR0aD0iMjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwhLS0gd2Vpc3VuIHRleHQgLS0+CiAgPHRleHQgeD0iMTk1IiB5PSIyNjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2NSIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMzMTU0NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSIyIj53ZWlzdW48L3RleHQ+CiAgPCEtLSByZWQgZG90IC0tPgogIDxjaXJjbGUgY3g9IjIxNSIgY3k9IjIwMCIgcj0iOCIgZmlsbD0iI0U2MDAxMiIgLz4KICA8IS0tIHNpbmNlIDE5NzYgLS0+CiAgPHRleHQgeD0iMzIwIiB5PSIyMzAiIGZvbnQtZmFtaWx5PSJjdXJzaXZlLCBBcmlhbCIgZm9udC1zaXplPSIyMCIgZm9udC1zdHlsZT0iaXRhbGljIiBmaWxsPSIjMzE1NDZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5zaW5jZSAxOTc2PC90ZXh0PgogIDwhLS0g5YGJ5Yud5Lm+54Wl5bel5qWtIC0tPgogIDx0ZXh0IHg9IjE5NSIgeT0iMzEwIiBmb250LWZhbWlseT0iJ01pY3Jvc29mdCBKaGVuZ0hlaScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMzE1NDZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj41YGJ5Yud5Lm+54Wl5bel5qWtPC90ZXh0Pgo8L3N2Zz4=";
-
-    // 自訂彈窗
     window.customAlert = (msg) => {
-        const dlg = document.getElementById('custom-dialog'); document.getElementById('dialog-icon').innerText = '⚠️'; document.getElementById('dialog-title').innerText = '系統提示'; document.getElementById('dialog-message').innerText = msg;
-        const bC = document.getElementById('dialog-buttons'); bC.innerHTML = ''; const b = document.createElement('button');
-        b.className = "w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl btn-action"; b.innerText = "我知道了"; b.onclick = () => dlg.classList.add('hidden');
-        bC.appendChild(b); dlg.classList.remove('hidden');
-    };
-    window.customConfirm = (msg, onOk) => {
-        const dlg = document.getElementById('custom-dialog'); document.getElementById('dialog-icon').innerText = '❓'; document.getElementById('dialog-title').innerText = '確認操作'; document.getElementById('dialog-message').innerText = msg;
-        const bC = document.getElementById('dialog-buttons'); bC.innerHTML = ''; 
-        const b1 = document.createElement('button'); b1.className = "flex-1 bg-gray-100 text-gray-500 font-bold py-4 rounded-xl btn-action"; b1.innerText = "取消"; b1.onclick = () => dlg.classList.add('hidden');
-        const b2 = document.createElement('button'); b2.className = "flex-1 bg-red-600 text-white font-black py-4 rounded-xl shadow-lg btn-action"; b2.innerText = "確定執行"; b2.onclick = () => { dlg.classList.add('hidden'); onOk(); }; bC.appendChild(b1); bC.appendChild(b2); dlg.classList.remove('hidden');
+        const dlg = document.getElementById('custom-dialog'); if(!dlg) return;
+        const icon = document.getElementById('dialog-icon'); if(icon) icon.innerText = '⚠️';
+        const title = document.getElementById('dialog-title'); if(title) title.innerText = '系統提示';
+        const message = document.getElementById('dialog-message'); if(message) message.innerText = msg;
+        const bC = document.getElementById('dialog-buttons'); if(bC) bC.innerHTML = ''; 
+        const b = document.createElement('button');
+        b.className = "w-full bg-blue-600 text-white py-3 rounded-xl shadow-md btn-action"; 
+        b.innerText = "我知道了"; b.onclick = () => dlg.classList.add('hidden');
+        if(bC) bC.appendChild(b); dlg.classList.remove('hidden');
     };
 
-    window.showMsg = (msg) => { const el = document.getElementById('notification'); document.getElementById('notification-text').innerText = msg; el.classList.remove('opacity-0', 'translate-y-[-20px]'); setTimeout(() => el.classList.add('opacity-0', 'translate-y-[-20px]'), 3000); };
-    window.syncConfigToCloud = async function() {
-        try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'adminSettings'), { ...window.g_config }, { merge: true }); } catch(e) { window.customAlert("連線同步失敗！"); }
+    window.customConfirm = (msg, onOk) => {
+        const dlg = document.getElementById('custom-dialog'); if(!dlg) return;
+        const icon = document.getElementById('dialog-icon'); if(icon) icon.innerText = '❓';
+        const title = document.getElementById('dialog-title'); if(title) title.innerText = '確認操作';
+        const message = document.getElementById('dialog-message'); if(message) message.innerText = msg;
+        const bC = document.getElementById('dialog-buttons'); if(bC) bC.innerHTML = ''; 
+        const b1 = document.createElement('button'); 
+        b1.className = "flex-1 bg-gray-100 text-gray-600 py-3 rounded-xl btn-action border border-gray-300"; 
+        b1.innerText = "取消"; b1.onclick = () => dlg.classList.add('hidden');
+        const b2 = document.createElement('button'); 
+        b2.className = "flex-1 bg-red-600 text-white py-3 rounded-xl shadow-md btn-action"; 
+        b2.innerText = "確定執行"; b2.onclick = () => { dlg.classList.add('hidden'); onOk(); };
+        if(bC) { bC.appendChild(b1); bC.appendChild(b2); }
+        dlg.classList.remove('hidden');
+    };
+
+    window.showMsg = (msg) => { 
+        const el = document.getElementById('notification'); 
+        const txt = document.getElementById('notification-text');
+        if(txt) txt.innerText = msg; 
+        if(el) {
+            el.classList.remove('opacity-0', 'translate-y-[-20px]'); 
+            setTimeout(() => el.classList.add('opacity-0', 'translate-y-[-20px]'), 3000); 
+        }
     };
 
     window.switchView = function(vid) { 
       document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden')); 
-      document.getElementById(vid).classList.remove('hidden'); 
-      document.getElementById('top-bar').style.display = (vid==='view-login'||vid==='view-loading') ? 'none' : 'flex'; 
+      const target = document.getElementById(vid); if(target) target.classList.remove('hidden');
+      const topBar = document.getElementById('top-bar');
+      if(topBar) topBar.style.display = (vid==='view-login'||vid==='view-loading') ? 'none' : 'flex'; 
+      
+      if(vid === 'view-enroll') {
+         const ids = ['enroll-empId', 'enroll-name', 'enroll-dept-display', 'enroll-dept'];
+         ids.forEach(id => { const e = document.getElementById(id); if(e) e.value = ''; });
+         const warn = document.getElementById('enroll-warning'); if(warn) warn.classList.add('hidden');
+         const rY = document.getElementById('isAttendingY'); if(rY) rY.checked = true;
+      }
       window.scrollTo(0,0); window.updateUI(); 
     };
 
-    onAuthStateChanged(auth, u => { if(u){ window.setupListeners(); window.checkUrlParams(); } });
-    signInAnonymously(auth).catch(e => window.customAlert("Firebase 連線失敗"));
+    window.goToPage = function(pg) { window.switchView('view-'+pg); };
+    window.goToDetail = function(id) { window.g_activeCourseId = id; window.switchView('view-admin-detail'); };
 
+    // ----------------------------------------------------------------------
+    // ✅ 步驟二：Firebase 變數與狀態宣告
+    // ----------------------------------------------------------------------
+    const firebaseConfig = { apiKey: "AIzaSyCbI5Co6jCusLm3327TZhyGmtxjPLmxCL8", authDomain: "weisun-workhour.firebaseapp.com", projectId: "weisun-workhour", storageBucket: "weisun-workhour.firebasestorage.app", messagingSenderId: "860504444963", appId: "1:860504444963:web:7872172f271c2110a92196" };
+    const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app), appId = "weisun-training-app";
+
+    window.g_courses = []; window.g_records = []; 
+    window.g_config = { password: '888', publicUrl: '', logoData: '', departments: [], meetingRooms: [], employees: [] };
+    window.g_activeCourseId = null; window.g_editingMasterEid = null; window.g_courseManageAttendees = [];
+    window.g_signingRecordId = null;
+    
+    let sigCvs = null, sigCtx = null, isDrawingSign = false, sigHistoryLog = [];
+    const DEFAULT_LOGO = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIj4KICA8IS0tIFJlZCBVIHN5bWJvbHMgLS0+CiAgPHBhdGggZD0iTTE1MCAxNjAgdjYwIGE0MCA0MCAwIDAgMCA4MCAwIHYtODAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0U2MDAxMiIgc3Ryb2tlLXdpZHRoPSIyNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPHBhdGggZD0iTTI1MCAxNjAgdi02MCBhNDAgNDAgMCAwIDAgLTgwIDAgdjgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNFNjAwMTIiIHN0cm9rZS13aWR0aD0iMjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwhLS0gd2Vpc3VuIHRleHQgLS0+CiAgPHRleHQgeD0iMTk1IiB5PSIyNjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2NSIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMzMTU0NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSIyIj53ZWlzdW48L3RleHQ+CiAgPCEtLSByZWQgZG90IC0tPgogIDxjaXJjbGUgY3g9IjIxNSIgY3k9IjIwMCIgcj0iOCIgZmlsbD0iI0U2MDAxMiIgLz4KICA8IS0tIHNpbmNlIDE5NzYgLS0+CiAgPHRleHQgeD0iMzIwIiB5PSIyMzAiIGZvbnQtZmFtaWx5PSJjdXJzaXZlLCBBcmlhbCIgZm9udC1zaXplPSIyMCIgZm9udC1zdHlsZT0iaXRhbGljIiBmaWxsPSIjMzE1NDZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5zaW5jZSAxOTc2PC90ZXh0PgogIDwhLS0g5YGJ5Yud5Lm+54Wl5bel5qWtIC0tPgogIDx0ZXh0IHg9IjE5NSIgeT0iMzEwIiBmb250LWZhbWlseT0iJ01pY3Jvc29mdCBKaGVuZ0hlaScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMzE1NDZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj41YGJ5Yud5Lm+54Wl5bel5qWtPC90ZXh0Pgo8L3N2Zz4=";
+
+    window.syncConfigToCloud = async function() { 
+        try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'adminSettings'), { ...window.g_config }, { merge: true }); } 
+        catch(e) { window.customAlert("雲端連線失敗！"); } 
+    };
+
+    // ----------------------------------------------------------------------
+    // ✅ 步驟三：設定 Firebase 並呼叫監聽 
+    // ----------------------------------------------------------------------
     window.setupListeners = function() {
       onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'courses'), s => { window.g_courses = s.docs.map(d => ({ id: d.id, ...d.data() })); window.updateUI(); });
       onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'records'), s => { window.g_records = s.docs.map(d => ({ id: d.id, ...d.data() })); window.updateUI(); });
@@ -330,134 +465,169 @@
       if (pg && cid) { window.g_activeCourseId = cid; window.switchView('view-'+pg); } else { window.switchView('view-login'); } 
     };
 
+    // ----------------------------------------------------------------------
+    // ✅ 步驟四：畫面渲染機制與更新
+    // ----------------------------------------------------------------------
     const populateTimeSelects = () => {
         const hS = document.getElementById('form-start-h'); const hE = document.getElementById('form-end-h');
-        if(!hS) return;
-        const opts = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0')).map(v => `<option value="${v}">${v} 時</option>`).join('');
-        hS.innerHTML = hE.innerHTML = opts;
+        if(!hS || !hE) return;
+        if(hS.options.length === 0) {
+            const opts = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0')).map(v => `<option value="${v}">${v} 時</option>`).join('');
+            hS.innerHTML = hE.innerHTML = opts;
+        }
     };
 
     window.updateUI = function() { 
       const av = document.querySelector('.app-view:not(.hidden)'); if(!av) return; 
-      if(av.id === 'view-admin-list') { window.renderAdminList(); populateTimeSelects(); }
+      
+      if(av.id === 'view-admin-list') { 
+          window.renderAdminList(); 
+          populateTimeSelects();
+          const locS = document.getElementById('form-location');
+          if(locS) {
+             const val = locS.value; 
+             locS.innerHTML = '<option value="">請點選地點</option>' + (window.g_config.meetingRooms || []).map(r => `<option value="${r}">${r}</option>`).join(''); 
+             if(val) locS.value = val;
+          }
+      }
       else if(av.id === 'view-admin-detail') window.renderAdminDetail(); 
       else if(av.id === 'view-enroll') window.renderEnrollForm(); 
-      const l = window.g_config.logoData || DEFAULT_LOGO; ['login-logo','print-logo','enroll-logo','sign-logo','setting-logo-preview'].forEach(id => { const el = document.getElementById(id); if(el) el.src = l; }); 
-      if(av.id === 'view-admin-list') {
-         const locS = document.getElementById('form-location'); const val = locS.value;
-         locS.innerHTML = '<option value="">請選擇地點</option>' + (window.g_config.meetingRooms || []).map(r => `<option value="${r}">${r}</option>`).join('');
-         if(val) locS.value = val;
-      }
+      else if(av.id === 'view-sign') { window.renderSignList(); window.initSignaturePad(); }
+
+      const l = window.g_config.logoData || DEFAULT_LOGO; 
+      ['login-logo','print-logo','enroll-logo','sign-logo','setting-logo-preview'].forEach(id => { const el = document.getElementById(id); if(el) el.src = l; }); 
     };
 
-    // --- 各功能具體實現 ---
-    window.handleLogin = function(e) { e.preventDefault(); if (document.getElementById('login-password').value === window.g_config.password) { window.switchView('view-admin-list'); window.showMsg('登入成功'); } else { window.customAlert('密碼錯誤！'); } };
-    window.handleLogout = function() { window.switchView('view-login'); };
-    window.calcHours = function() { 
-      const d = document.getElementById('form-date').value; if (!d) return;
-      const t1 = `${document.getElementById('form-start-h').value}:${document.getElementById('form-start-m').value}`;
-      const t2 = `${document.getElementById('form-end-h').value}:${document.getElementById('form-end-m').value}`;
-      const s = new Date(`${d}T${t1}`), e = new Date(`${d}T${t2}`);
-      if (e > s) document.getElementById('form-hours').value = ((e - s) / 3600000).toFixed(1); else document.getElementById('form-hours').value = '';
+    // ----------------------------------------------------------------------
+    // ✅ 步驟五：各項管理後台操作函數
+    // ----------------------------------------------------------------------
+    window.handleLogin = (e) => { e.preventDefault(); const pEl = document.getElementById('login-password'); if (pEl && pEl.value === window.g_config.password) { window.switchView('view-admin-list'); window.showMsg('登入成功'); } else { window.customAlert('密碼錯誤！'); } };
+    window.handleLogout = () => window.switchView('view-login');
+    window.calcHours = () => { 
+      const dEl = document.getElementById('form-date'); if (!dEl || !dEl.value) return;
+      const sh = document.getElementById('form-start-h'), sm = document.getElementById('form-start-m');
+      const eh = document.getElementById('form-end-h'), em = document.getElementById('form-end-m');
+      if(!sh || !sm || !eh || !em) return;
+      const s = new Date(`${dEl.value}T${sh.value}:${sm.value}`); const e = new Date(`${dEl.value}T${eh.value}:${em.value}`);
+      const hrEl = document.getElementById('form-hours');
+      if(hrEl) hrEl.value = (e > s) ? ((e - s) / 3600000).toFixed(1) : '';
     };
 
-    window.resetCourseForm = function() { 
-        window.g_editingCourseId = null; ['form-course-id','form-name','form-lecturer','form-date','form-hours','form-location'].forEach(id => document.getElementById(id).value = '');
-        ['form-start-h','form-start-m','form-end-h','form-end-m'].forEach(id => { const el = document.getElementById(id); if(el) el.selectedIndex = 0; });
-        document.getElementById('course-form-title').innerText = '新增課程'; document.getElementById('form-submit-btn').innerText = '建立雲端課程'; document.getElementById('form-cancel-btn').classList.add('hidden'); 
+    window.resetCourseForm = () => { 
+        window.g_editingCourseId = null; 
+        ['form-course-id','form-name','form-lecturer','form-date','form-hours','form-location'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; }); 
+        ['form-start-h','form-start-m','form-end-h','form-end-m'].forEach(id => { const el = document.getElementById(id); if(el) el.selectedIndex = 0; }); 
+        const tEl = document.getElementById('course-form-title'); if(tEl) tEl.innerHTML = '<span class="text-3xl">✨</span>新增課程'; 
+        const bEl = document.getElementById('form-submit-btn'); if(bEl) bEl.innerText = '建立課程'; 
+        const cEl = document.getElementById('form-cancel-btn'); if(cEl) cEl.classList.add('hidden'); 
     };
     
-    window.handleSaveCourse = async function(e) { 
-        e.preventDefault(); const id = window.g_editingCourseId || window.generateId();
+    window.handleSaveCourse = async (e) => { 
+        e.preventDefault(); const id = window.g_editingCourseId || window.generateId(); 
+        const dEl = document.getElementById('form-date'); if(!dEl) return;
         const st = `${document.getElementById('form-start-h').value}:${document.getElementById('form-start-m').value}`;
         const et = `${document.getElementById('form-end-h').value}:${document.getElementById('form-end-m').value}`;
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', id), { id, name: document.getElementById('form-name').value, lecturer: document.getElementById('form-lecturer').value, startTime: `${document.getElementById('form-date').value}T${st}`, endTime: `${document.getElementById('form-date').value}T${et}`, hours: document.getElementById('form-hours').value, location: document.getElementById('form-location').value }); window.showMsg('✅ 已同步'); window.resetCourseForm(); 
+        const nm = document.getElementById('form-name').value, lct = document.getElementById('form-lecturer').value, hr = document.getElementById('form-hours').value, loc = document.getElementById('form-location').value;
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', id), { id, name: nm, lecturer: lct, startTime: `${dEl.value}T${st}`, endTime: `${dEl.value}T${et}`, hours: hr, location: loc }); 
+        window.showMsg('✅ 同步成功'); window.resetCourseForm(); 
     };
 
-    window.editCourse = function(id) { 
-        const c = window.g_courses.find(x => x.id === id); if (!c) return; 
-        window.g_editingCourseId = id; document.getElementById('form-name').value = c.name; document.getElementById('form-lecturer').value = c.lecturer; 
-        if (c.startTime) { const [d, t] = c.startTime.split('T'), [h, m] = t.split(':'); document.getElementById('form-date').value = d; document.getElementById('form-start-h').value = h; document.getElementById('form-start-m').value = m; } 
-        if (c.endTime) { const [h, m] = c.endTime.split('T')[1].split(':'); document.getElementById('form-end-h').value = h; document.getElementById('form-end-m').value = m; }
-        document.getElementById('form-hours').value = c.hours; document.getElementById('form-location').value = c.location; 
-        document.getElementById('course-form-title').innerText = '✏️ 修改課程'; document.getElementById('form-submit-btn').innerText = '儲存修改'; document.getElementById('form-cancel-btn').classList.remove('hidden'); window.scrollTo(0,0); 
+    window.editCourse = (id) => { 
+        const c = window.g_courses.find(x => x.id === id); if (!c) return; window.g_editingCourseId = id; 
+        const nEl = document.getElementById('form-name'), lEl = document.getElementById('form-lecturer'), dEl = document.getElementById('form-date'), hEl = document.getElementById('form-hours'), locEl = document.getElementById('form-location');
+        if(nEl) nEl.value = c.name; if(lEl) lEl.value = c.lecturer; 
+        if (c.startTime) { const [d, t] = c.startTime.split('T'), [h, m] = t.split(':'); if(dEl) dEl.value = d; const sh = document.getElementById('form-start-h'), sm = document.getElementById('form-start-m'); if(sh) sh.value = h; if(sm) sm.value = m; } 
+        if (c.endTime) { const [h, m] = c.endTime.split('T')[1].split(':'); const eh = document.getElementById('form-end-h'), em = document.getElementById('form-end-m'); if(eh) eh.value = h; if(em) em.value = m; }
+        if(hEl) hEl.value = c.hours; if(locEl) locEl.value = c.location; 
+        const tEl = document.getElementById('course-form-title'), bEl = document.getElementById('form-submit-btn'), cEl = document.getElementById('form-cancel-btn');
+        if(tEl) tEl.innerHTML = '<span class="text-3xl">✏️</span>修改課程'; if(bEl) bEl.innerText = '儲存修改'; if(cEl) cEl.classList.remove('hidden'); window.scrollTo(0,0); 
     };
-    window.deleteCourse = async function(id) { window.customConfirm('確定永久刪除？', async () => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', id)); window.showMsg('✅ 課程已移除'); }); };
-    window.goToDetail = function(id) { window.g_activeCourseId = id; window.switchView('view-admin-detail'); };
+
+    window.deleteCourse = async (id) => { window.customConfirm('確定永久刪除此課程？', async () => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', id)); window.showMsg('✅ 已刪除'); }); };
     window.copyToClipboard = function(t) { const u = (window.g_config.publicUrl || (window.location.origin + window.location.pathname)).replace(/\/$/, '') + `?page=${t}&courseId=${window.g_activeCourseId}`; const ta = document.createElement("textarea"); ta.value = u; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); window.showMsg('✅ 連結已複製'); document.body.removeChild(ta); };
 
-    window.renderAdminList = function() { 
-      const ctn = document.getElementById('course-list-container'); if (window.g_courses.length === 0) { ctn.innerHTML = '<div class="bg-white p-10 rounded-xl text-center border-2 border-dashed border-gray-300 font-bold font-black font-black">雲端目前尚無課程</div>'; return; } 
-      ctn.innerHTML = window.g_courses.map(c => `<div class="bg-white p-6 rounded-[2rem] shadow-sm border-2 border-gray-100 flex flex-col md:flex-row justify-between items-center hover:shadow-xl transition text-gray-700 font-bold font-black"><div class="mb-4 md:mb-0 font-black"><h3 class="text-2xl font-black text-gray-900">${c.name}</h3><p class="text-sm mt-1 text-gray-500 font-black font-black font-black">講師：${c.lecturer} | 時數：${c.hours}H | 地點：${c.location}</p><p class="text-[11px] text-blue-500 mt-1 font-black italic tracking-tighter">${c.startTime.replace('T',' ')} ～ ${c.endTime.split('T')[1]}</p></div><div class="flex flex-wrap gap-2 font-black"><button type="button" onclick="window.editCourse('${c.id}')" class="bg-yellow-50 text-yellow-700 px-5 py-2 rounded-full border-2 border-yellow-100 btn-action shadow-sm font-black font-black">編輯</button><button type="button" onclick="window.deleteCourse('${c.id}')" class="bg-red-50 text-red-600 px-5 py-2 rounded-full border-2 border-red-100 btn-action shadow-sm font-black font-black">刪除</button><button type="button" onclick="window.openManageModal('${c.id}')" class="bg-indigo-600 text-white px-5 py-2 rounded-full btn-action shadow-lg border-none font-black font-black">👥 名冊</button><button type="button" onclick="window.goToDetail('${c.id}')" class="bg-blue-600 text-white px-5 py-2 rounded-full btn-action shadow-lg border-none font-black font-black font-black">🎫 詳情</button></div></div>`).join(''); 
+    window.renderAdminList = () => {
+      const ctn = document.getElementById('course-list-container'); if(!ctn) return;
+      if (window.g_courses.length === 0) { ctn.innerHTML = '<div class="p-10 rounded-2xl text-center border-2 border-dashed border-gray-300">目前尚無課程資料</div>'; return; }
+      ctn.innerHTML = window.g_courses.map(c => `<div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-200 flex flex-col xl:flex-row justify-between items-center hover:shadow-lg transition"><div class="mb-4 xl:mb-0 w-full"><h3 class="text-2xl text-gray-800 mb-2">${c.name}</h3><p class="text-sm text-gray-500">👤 ${c.lecturer} | 📍 ${c.location} | ⏳ ${c.hours}H</p><p class="text-xs text-blue-600 mt-2 bg-blue-50 inline-block px-3 py-1 rounded-md border border-blue-100">${c.startTime.replace('T',' ')} ～ ${c.endTime.split('T')[1]}</p></div><div class="flex flex-wrap gap-2 w-full xl:w-auto mt-3 xl:mt-0"><button type="button" onclick="window.editCourse('${c.id}')" class="bg-yellow-50 text-yellow-700 px-4 py-2 rounded-lg border border-yellow-200 btn-action text-sm">編輯</button><button type="button" onclick="window.deleteCourse('${c.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-lg border border-red-200 btn-action text-sm">刪除</button><button type="button" onclick="window.openManageModal('${c.id}')" class="bg-indigo-600 text-white px-5 py-2 rounded-lg btn-action shadow-md text-sm">👥 名冊</button><button type="button" onclick="window.goToDetail('${c.id}')" class="bg-blue-600 text-white px-5 py-2 rounded-lg btn-action shadow-md text-sm">🎫 邀請/簽到</button></div></div>`).join('');
     };
 
-    window.renderAdminDetail = function() {
+    window.renderAdminDetail = () => {
       const c = window.g_courses.find(x => x.id === window.g_activeCourseId); if (!c) return;
+      const u = (window.g_config.publicUrl || (window.location.origin + window.location.pathname)).replace(/\/$/, '');
+      const enrollUrl = u + '?page=enroll&courseId=' + c.id, signUrl = u + '?page=sign&courseId=' + c.id;
+      const actions = document.getElementById('detail-actions-area'); 
+      if(actions) { 
+        actions.innerHTML = `<div class="bg-white p-6 rounded-[2rem] shadow-lg border-t-8 border-blue-600 flex flex-col lg:flex-row items-center gap-6"><div class="bg-white p-2 rounded-2xl border shadow-inner shrink-0"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(enrollUrl)}" class="w-28 h-28" /></div><div class="flex-1 w-full text-center lg:text-left"><h3 class="text-xl text-blue-800 mb-2">Step 1: 報名邀請</h3><p class="text-sm text-gray-500 mb-4">發送連結供員工預先報名。</p><div class="flex flex-col sm:flex-row gap-2 w-full"><button type="button" onclick="window.copyToClipboard('enroll')" class="flex-1 bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 shadow-md btn-action text-sm">📋 複製邀請網址</button><button type="button" onclick="window.goToPage('enroll')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 border btn-action text-sm">💻 模擬頁面</button></div></div></div><div class="bg-white p-6 rounded-[2rem] shadow-lg border-t-8 border-green-600 flex flex-col lg:flex-row items-center gap-6"><div class="bg-white p-2 rounded-2xl border shadow-inner shrink-0"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(signUrl)}" class="w-28 h-28" /></div><div class="flex-1 w-full text-center lg:text-left"><h3 class="text-xl text-green-800 mb-2">Step 2: 現場簽到</h3><p class="text-sm text-gray-500 mb-4">現場供員工掃碼簽名。</p><div class="flex flex-col sm:flex-row gap-2 w-full"><button type="button" onclick="window.copyToClipboard('sign')" class="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 shadow-md btn-action text-sm">📋 複製簽到網址</button><button type="button" onclick="window.goToPage('sign')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 border btn-action text-sm">📱 模擬頁面</button></div></div></div>`; 
+      }
       let rows = ''; const atts = window.g_records.filter(r => r.courseId === c.id && r.isAttending).sort((a,b) => (a.empId||'').localeCompare(b.empId||''));
-      for(let i=0; i<Math.max(16, atts.length); i++) { const r = atts[i]; rows += `<tr class="h-11 text-center font-bold text-gray-800 font-black font-black font-black font-black font-black font-black"><td class="border border-black text-xs font-black font-black font-black">${i+1}</td><td class="border border-black text-xs font-black font-black font-black font-black">${r?r.dept:''}</td><td class="border border-black uppercase text-xs font-black font-black font-black font-black font-black">${r?r.empId:''}</td><td class="border border-black text-xs font-black font-black font-black font-black font-black">${r?r.name:''}</td><td class="border border-black p-1 font-black font-black font-black font-black">${r&&r.signatureData?`<img src="${r.signatureData}" class="h-9 mx-auto mix-blend-multiply font-black font-black"/>`:''}</td><td class="border border-black"></td><td class="border border-black"></td><td class="border border-black"></td></tr>`; }
-      rows += `<tr class="bg-gray-100 text-center font-black h-10 text-xs text-gray-900 font-black font-black font-black font-black font-black"><td colspan="2" class="border border-black font-black font-black font-black font-black">人數統計</td><td colspan="2" class="border border-black font-black font-black font-black font-black font-black">合計 <span class="underline text-xl font-black font-black font-black font-black">${atts.length}</span> 人</td><td colspan="2" class="border border-black font-black font-black font-black">合格人數</td><td colspan="2" class="border border-black font-black font-black font-black">/</td></tr>`;
-      document.getElementById('print-table-header').innerHTML = `<tr><td class="border border-black px-3 py-2 font-black bg-gray-100 w-32 text-center text-sm font-black font-black">課程名稱</td><td colSpan="7" class="border border-black px-3 py-2 text-left pl-4 font-black text-sm font-black font-black">${c.name}</td></tr><tr><td class="border border-black px-3 py-2 font-black bg-gray-100 text-center text-sm font-black font-black font-black">講　　師</td><td colSpan="7" class="border border-black px-3 py-2 text-left pl-4 text-sm font-black font-black font-black">${c.lecturer}</td></tr><tr><td class="border border-black px-3 py-2 font-black bg-gray-100 text-center text-sm font-black font-black font-black font-black font-black">上課時間</td><td colSpan="7" class="border border-black px-3 py-2 text-left pl-4 text-sm font-black font-black font-black font-black font-black font-black">${c.startTime.replace('T',' ')} ～ (${c.hours}H)</td></tr><tr><td colSpan="8" class="border border-black px-2 py-1.5 font-black bg-gray-200 text-center tracking-[0.8em] text-sm font-black font-black font-black font-black">參 與 人 員</td></tr><tr class="bg-gray-100 text-center font-black text-xs font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black"><td class="border border-black">No</td><td class="border border-black">部門</td><td class="border border-black">工號</td><td class="border border-black">姓名</td><td class="border border-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black">簽到</td><td class="border border-black font-black font-black font-black font-black font-black font-black">成績</td><td class="border border-black font-black font-black font-black font-black font-black">合格</td><td class="border border-black font-black font-black font-black font-black">備註</td></tr>`;
-      document.getElementById('print-table-body').innerHTML = rows;
+      for(let i=0; i<Math.max(16, atts.length); i++) { const r = atts[i]; rows += `<tr class="h-12 text-center border-b border-black text-[13px]"><td class="border-r border-black px-1">${i+1}</td><td class="border-r border-black px-1">${r?r.dept:''}</td><td class="border-r border-black uppercase px-1">${r?r.empId:''}</td><td class="border-r border-black px-1">${r?r.name:''}</td><td class="border-r border-black p-1">${r&&r.signatureData?`<img src="${r.signatureData}" class="h-10 mx-auto mix-blend-multiply"/>`:''}</td><td class="border-r border-black"></td><td class="border-r border-black"></td><td class=""></td></tr>`; }
+      rows += `<tr class="bg-gray-100 text-center h-12 text-[13px] border-b border-black"><td colspan="2" class="border-r border-black">人數統計</td><td colspan="2" class="border-r border-black">合計 <span class="underline text-lg px-2">${atts.length}</span> 人</td><td colspan="2" class="border-r border-black">合格人數</td><td colspan="2" class="">/</td></tr>`;
+      const h = document.getElementById('print-table-header'), b = document.getElementById('print-table-body');
+      if(h) h.innerHTML = `<tr class="border-b border-black"><td class="border-r border-black px-2 py-2 bg-gray-100 w-24 text-center text-sm">課程名稱</td><td colSpan="7" class="px-3 py-2 text-left text-sm">${c.name}</td></tr><tr class="border-b border-black"><td class="border-r border-black px-2 py-2 bg-gray-100 text-center text-sm">講　　師</td><td colSpan="7" class="px-3 py-2 text-left text-sm">${c.lecturer}</td></tr><tr class="border-b border-black"><td class="border-r border-black px-2 py-2 bg-gray-100 text-center text-sm">上課時間</td><td colSpan="7" class="px-3 py-2 text-left text-sm tracking-wide">${window.formatDate(c.startTime)} ～ (${c.hours}H)</td></tr><tr class="border-b border-black"><td colSpan="8" class="px-2 py-1 bg-gray-200 text-center tracking-[1em] text-sm">參與人員</td></tr><tr class="bg-gray-100 text-center text-[13px] border-b border-black"><td class="border-r border-black py-1.5 w-10">No</td><td class="border-r border-black py-1.5 w-24">部門</td><td class="border-r border-black py-1.5 w-20">工號</td><td class="border-r border-black py-1.5 w-20">姓名</td><td class="border-r border-black py-1.5 w-40">簽到</td><td class="border-r border-black py-1.5 w-16">成績</td><td class="border-r border-black py-1.5 w-16">合格</td><td class="py-1.5 w-20">備註</td></tr>`;
+      if(b) b.innerHTML = rows;
     };
 
+    // ----------------------------------------------------------------------
+    // ✅ 步驟六：設定與全公司主檔案功能
+    // ----------------------------------------------------------------------
     window.toggleSettings = function(s) {
-      const m = document.getElementById('settings-modal');
+      const m = document.getElementById('settings-modal'); if(!m) return;
       if(s) {
-        document.getElementById('setting-url').value = window.g_config.publicUrl || ''; document.getElementById('setting-pass').value = ''; 
-        document.getElementById('setting-departments').value = (window.g_config.departments || []).join('\n');
-        document.getElementById('setting-meeting-rooms').value = (window.g_config.meetingRooms || []).join('\n');
-        document.getElementById('master-dept').innerHTML = '<option value="">選擇部門</option>' + (window.g_config.departments || []).map(d => `<option value="${d}">${d}</option>`).join('');
-        document.getElementById('setting-logo-preview').src = window.g_config.logoData || DEFAULT_LOGO;
+        const u = document.getElementById('setting-url'), p = document.getElementById('setting-pass'), d = document.getElementById('setting-departments'), r = document.getElementById('setting-meeting-rooms'), mD = document.getElementById('master-dept'), l = document.getElementById('setting-logo-preview');
+        if(u) u.value = window.g_config.publicUrl || ''; if(p) p.value = ''; 
+        if(d) d.value = (window.g_config.departments || []).join('\n');
+        if(r) r.value = (window.g_config.meetingRooms || []).join('\n');
+        if(mD) mD.innerHTML = '<option value="">選擇部門</option>' + (window.g_config.departments || []).map(dp => `<option value="${dp}">${dp}</option>`).join('');
+        if(l) l.src = window.g_config.logoData || DEFAULT_LOGO;
         window.resetMasterForm(); window.renderMasterTable(); m.classList.remove('hidden');
       } else m.classList.add('hidden');
     };
 
-    window.handleLogoUpload = function(e) {
-      const f = e.target.files[0]; if(!f) return;
-      const r = new FileReader(); r.onload = function(ev) {
-        const img = new Image(); img.onload = function() {
-          const cvs = document.createElement('canvas'); const MAX = 300; const s = MAX / img.width; cvs.width = MAX; cvs.height = img.height * s;
-          const ctx = cvs.getContext('2d'); ctx.fillStyle = '#FFF'; ctx.fillRect(0,0,cvs.width,cvs.height); ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
-          window.g_config.logoData = cvs.toDataURL('image/jpeg', 0.9); document.getElementById('setting-logo-preview').src = window.g_config.logoData;
-        }; img.src = ev.target.result;
-      }; r.readAsDataURL(f);
+    window.resetMasterForm = function() {
+      window.g_editingMasterEid = null;
+      ['master-empId','master-name','master-dept'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+      const t = document.getElementById('master-form-title'); if(t) t.innerText = '單筆基本資料維護';
+      const b = document.getElementById('btn-save-master-emp'); if(b) b.innerText = '確認儲存';
+      const i = document.getElementById('master-form-mode-icon'); if(i) i.innerText = '➕';
+      const c = document.getElementById('btn-cancel-master-edit'); if(c) c.classList.add('hidden');
     };
 
-    window.resetMasterForm = function() {
-      window.g_editingMasterEid = null; ['master-empId','master-name','master-dept'].forEach(id => document.getElementById(id).value = '');
-      document.getElementById('master-form-title').innerText = '單筆人員資料維護'; document.getElementById('btn-save-master-emp').innerText = '確認儲存修改';
-      document.getElementById('master-form-mode-icon').innerText = '➕'; document.getElementById('btn-cancel-master-edit').classList.add('hidden');
+    window.renderMasterTable = function() {
+      const b = document.getElementById('master-table-body'); if (!b) return;
+      const emps = window.g_config.employees || [];
+      const countEl = document.getElementById('master-count'); if (countEl) countEl.innerText = `共 ${emps.length} 人`;
+      b.innerHTML = (emps.length === 0) ? '<tr><td colspan="4" class="p-8 text-center text-gray-400">目前尚無資料</td></tr>' :
+        emps.map(e => `<tr class="border-b text-gray-700 hover:bg-gray-50"><td class="p-3 text-indigo-900">${e.empId}</td><td class="p-3">${e.name}</td><td class="p-3 text-gray-400 text-xs">${e.dept}</td><td class="p-3 text-center"><button type="button" onclick="window.editMasterEmp('${e.empId}')" class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-md btn-action mr-2">✏️</button><button type="button" onclick="window.removeMasterEmp('${e.empId}')" class="bg-red-50 text-red-600 px-3 py-1 rounded-md btn-action">🗑️</button></td></tr>`).join('');
     };
 
     window.handleMasterFormSubmit = async function() {
-      const eid = document.getElementById('master-empId').value.trim().toUpperCase(), nm = document.getElementById('master-name').value.trim(), dp = document.getElementById('master-dept').value;
-      if(!eid || !nm) return window.customAlert('請完整填寫工號與姓名！');
+      const eEl = document.getElementById('master-empId'), nEl = document.getElementById('master-name'), dEl = document.getElementById('master-dept');
+      if(!eEl || !nEl || !dEl) return;
+      const eid = eEl.value.trim().toUpperCase(), nm = nEl.value.trim(), dp = dEl.value;
+      if(!eid || !nm) return window.customAlert('請填寫完整資訊！');
       let emps = [...(window.g_config.employees || [])]; const idx = emps.findIndex(e => String(e.empId).trim() === eid);
       if(window.g_editingMasterEid) { 
         if(idx > -1 && String(emps[idx].empId).trim() !== String(window.g_editingMasterEid).trim()) return window.customAlert('工號已被占用！');
         if(idx > -1) emps[idx] = { empId: eid, name: nm, dept: dp };
         else { const oldIdx = emps.findIndex(e => String(e.empId).trim() === String(window.g_editingMasterEid).trim()); if(oldIdx > -1) emps[oldIdx] = { empId: eid, name: nm, dept: dp }; }
       } else { if(idx > -1) return window.customAlert('工號已存在！'); emps.push({ empId: eid, name: nm, dept: dp }); }
-      window.g_config.employees = emps.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); window.resetMasterForm(); window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已同步');
+      window.g_config.employees = emps.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); window.resetMasterForm(); window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已儲存至主檔案');
     };
 
     window.editMasterEmp = function(eid) {
       const e = (window.g_config.employees || []).find(x => String(x.empId).trim() === String(eid).trim()); if(!e) return;
-      window.g_editingMasterEid = eid; document.getElementById('master-empId').value = e.empId; document.getElementById('master-name').value = e.name; document.getElementById('master-dept').value = e.dept;
-      document.getElementById('master-form-title').innerText = '編輯人員檔案'; document.getElementById('btn-save-master-emp').innerText = '確認儲存修改';
-      document.getElementById('master-form-mode-icon').innerText = '✏️'; document.getElementById('btn-cancel-master-edit').classList.remove('hidden');
+      window.g_editingMasterEid = eid; 
+      const eEl = document.getElementById('master-empId'), nEl = document.getElementById('master-name'), dEl = document.getElementById('master-dept');
+      if(eEl) eEl.value = e.empId; if(nEl) nEl.value = e.name; if(dEl) dEl.value = e.dept;
+      const t = document.getElementById('master-form-title'), b = document.getElementById('btn-save-master-emp'), i = document.getElementById('master-form-mode-icon'), c = document.getElementById('btn-cancel-master-edit');
+      if(t) t.innerText = '編輯人員檔案'; if(b) b.innerText = '確認儲存修改'; if(i) i.innerText = '✏️'; if(c) c.classList.remove('hidden'); 
     };
 
-    window.removeMasterEmp = async function(eid) { window.customConfirm(`永久刪除工號 [${eid}] 的人員資料嗎？`, async () => { window.g_config.employees = (window.g_config.employees || []).filter(e => String(e.empId).trim() !== String(eid).trim()); window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已刪除'); }); };
-    window.clearAllMasterEmps = async function() { window.customConfirm('確定要完全清空主檔案嗎？', async () => { window.g_config.employees = []; window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已重置'); }); };
+    window.removeMasterEmp = async function(eid) { window.customConfirm(`永久刪除工號 [${eid}]？`, async () => { window.g_config.employees = (window.g_config.employees || []).filter(e => String(e.empId).trim() !== String(eid).trim()); window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已從雲端刪除'); }); };
+    window.clearAllMasterEmps = async function() { window.customConfirm('確定要完全清空主檔案嗎？', async () => { window.g_config.employees = []; window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已清空'); }); };
     
-    window.renderMasterTable = function() {
-      const b = document.getElementById('master-table-body'), emps = window.g_config.employees || []; document.getElementById('master-count').innerText = `共 ${emps.length} 人`;
-      b.innerHTML = (emps.length === 0) ? '<tr><td colspan="4" class="p-8 text-center text-gray-400 font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black font-black">目前無資料</td></tr>' :
-        emps.map(e => `<tr class="border-b text-gray-700 font-bold font-black"><td class="p-4 font-black text-indigo-900">${e.empId}</td><td class="p-4 font-black font-black">${e.name}</td><td class="p-4 text-gray-400 text-xs font-black font-black font-black font-black">${e.dept}</td><td class="p-4 text-center flex gap-2 justify-center font-black font-black font-black"><button type="button" onclick="window.editMasterEmp('${e.empId}')" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg btn-action font-black">✏️</button><button type="button" onclick="window.removeMasterEmp('${e.empId}')" class="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg btn-action font-black font-black font-black">🗑️</button></td></tr>`).join('');
-    };
-
-    window.triggerCSVUpload = function() { document.getElementById('csv-upload-input').click(); };
+    window.triggerCSVUpload = function() { const el = document.getElementById('csv-upload-input'); if(el) el.click(); };
     window.handleCSVUpload = function(event) {
         const file = event.target.files[0]; if (!file) return;
         window.customConfirm('⚠️ 上傳 CSV 會完全覆蓋現有名單！確定嗎？', () => {
@@ -470,107 +640,137 @@
             }; reader.readAsText(file);
         });
     };
-
     window.importToMaster = async function() {
-      const txt = document.getElementById('setting-master-import').value; if(!txt.trim()) return;
+      const txtArea = document.getElementById('setting-master-import'); if(!txtArea || !txtArea.value.trim()) return;
       let emps = [...(window.g_config.employees || [])];
-      txt.split('\n').forEach(r => {
+      txtArea.value.split('\n').forEach(r => {
         const c = r.split(r.includes('\t')?'\t':',').map(x => x.trim().replace(/^"|"$/g,''));
         if(c.length >= 2 && c[0] && !c[0].includes('工號')) { const eid = String(c[0]).toUpperCase(), obj = { empId: eid, name: c[1], dept: c[2] || '' }; const idx = emps.findIndex(x => String(x.empId) === eid); if(idx > -1) emps[idx] = obj; else emps.push(obj); }
       });
-      window.g_config.employees = emps.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); document.getElementById('setting-master-import').value = ''; window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已同步更新');
+      window.g_config.employees = emps.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); txtArea.value = ''; window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已同步更新');
     };
-
+    window.handleLogoUpload = function(e) { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = function(ev) { const img = new Image(); img.onload = function() { const cvs = document.createElement('canvas'); const MAX = 300; const s = MAX / img.width; cvs.width = MAX; cvs.height = img.height * s; const ctx = cvs.getContext('2d'); ctx.fillStyle = '#FFF'; ctx.fillRect(0,0,cvs.width,cvs.height); ctx.drawImage(img, 0, 0, cvs.width, cvs.height); window.g_config.logoData = cvs.toDataURL('image/jpeg', 0.9); const p = document.getElementById('setting-logo-preview'); if(p) p.src = window.g_config.logoData; }; img.src = ev.target.result; }; r.readAsDataURL(f); };
     window.saveSettings = async function() { 
-      window.g_config.departments = document.getElementById('setting-departments').value.split('\n').map(d=>d.trim()).filter(d=>d); 
-      window.g_config.meetingRooms = document.getElementById('setting-meeting-rooms').value.split('\n').map(r=>r.trim()).filter(r=>r);
-      window.g_config.publicUrl = document.getElementById('setting-url').value;
-      const p = document.getElementById('setting-pass').value; if(p) window.g_config.password = p;
+      const d = document.getElementById('setting-departments'), r = document.getElementById('setting-meeting-rooms'), u = document.getElementById('setting-url'), p = document.getElementById('setting-pass');
+      if(d) window.g_config.departments = d.value.split('\n').map(x=>x.trim()).filter(x=>x); 
+      if(r) window.g_config.meetingRooms = r.value.split('\n').map(x=>x.trim()).filter(x=>x);
+      if(u) window.g_config.publicUrl = u.value;
+      if(p && p.value) window.g_config.password = p.value;
       await window.syncConfigToCloud(); window.showMsg('✅ 設定同步成功'); window.toggleSettings(false); 
     };
-
     window.exportMasterCSV = function() { let c = '\uFEFF工號,姓名,部門\n'; (window.g_config.employees||[]).forEach(e => c+=`"${e.empId}","${e.name}","${e.dept}"\n`); const b = new Blob([c], {type:'text/csv;charset=utf-8;'}); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = "全員主檔案.csv"; l.click(); };
 
-    window.openManageModal = function(cid) { window.g_activeCourseId = cid || window.g_activeCourseId; window.g_courseManageAttendees = JSON.parse(JSON.stringify(window.g_records.filter(r => r.courseId === window.g_activeCourseId && r.isAttending))).sort((a,b)=>(a.empId||'').localeCompare(b.empId||'')); window.renderCourseManageTable(); document.getElementById('manage-modal').classList.remove('hidden'); };
-    window.closeManageModal = function() { document.getElementById('manage-modal').classList.add('hidden'); };
+    // ----------------------------------------------------------------------
+    // ✅ 步驟七：名冊管理與報名簽到邏輯
+    // ----------------------------------------------------------------------
+    window.openManageModal = function(cid) { window.g_activeCourseId = cid || window.g_activeCourseId; window.g_courseManageAttendees = JSON.parse(JSON.stringify(window.g_records.filter(r => r.courseId === window.g_activeCourseId && r.isAttending))).sort((a,b)=>(a.empId||'').localeCompare(b.empId||'')); const m = document.getElementById('manage-modal'); if(m) m.classList.remove('hidden'); window.renderCourseManageTable(); };
+    window.closeManageModal = function() { const m = document.getElementById('manage-modal'); if(m) m.classList.add('hidden'); };
     window.addAttendeeToCourse = function() {
-      const eid = document.getElementById('course-manual-empId').value.trim().toUpperCase(); if(!eid) return window.customAlert('請輸入工號！');
+      const eEl = document.getElementById('course-manual-empId'); if(!eEl) return;
+      const eid = eEl.value.trim().toUpperCase(); if(!eid) return window.customAlert('請輸入工號！');
       const mE = (window.g_config.employees || []).find(x => String(x.empId).trim() === eid);
-      if(!mE) return window.customAlert(`此工號無註冊！請先至系統設定。`);
+      if(!mE) return window.customAlert(`查無此工號！`);
       if(window.g_courseManageAttendees.find(a => String(a.empId).trim() === eid)) return window.customAlert('已在名單中');
       window.g_courseManageAttendees.push({ id: window.generateId(), courseId: window.g_activeCourseId, empId: eid, name: mE.name, dept: mE.dept, isAttending: true, signatureData: null });
-      window.g_courseManageAttendees.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); document.getElementById('course-manual-empId').value=''; window.renderCourseManageTable(); window.showMsg(`✅ 已加入：${mE.name}`);
+      window.g_courseManageAttendees.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); eEl.value=''; window.renderCourseManageTable(); window.showMsg(`✅ 已加入：${mE.name}`);
     };
     window.removeCourseAttendee = function(id) { window.g_courseManageAttendees = window.g_courseManageAttendees.filter(x => x.id !== id); window.renderCourseManageTable(); };
     window.renderCourseManageTable = function() { 
-      const b = document.getElementById('course-manage-table-body'), atts = window.g_courseManageAttendees || []; document.getElementById('course-manage-count').innerText = `${atts.length} 人`; 
+      const b = document.getElementById('course-manage-table-body'); if (!b) return;
+      const countEl = document.getElementById('course-manage-count'); const atts = window.g_courseManageAttendees || []; 
+      if (countEl) countEl.innerText = `${atts.length} 人`; 
       b.innerHTML = (atts.length === 0) ? '<tr><td colspan="4" class="p-8 text-center text-gray-400">目前名冊無人</td></tr>' : 
-         atts.map(a => `<tr class="border-b text-gray-700 font-bold font-black"><td class="p-4 text-indigo-900 font-black font-black font-black font-black font-black">${a.empId}</td><td class="p-4 font-black">${a.name}</td><td class="p-4 text-gray-400 text-xs">${a.dept}</td><td class="p-4 text-center font-black"><button type="button" onclick="window.removeCourseAttendee('${a.id}')" class="bg-red-50 text-red-600 px-4 py-1.5 rounded-full btn-action font-black">移除</button></td></tr>`).join(''); 
+         atts.map(a => `<tr class="border-b text-gray-700"><td class="p-3 text-indigo-900">${a.empId}</td><td class="p-3">${a.name}</td><td class="p-3 text-gray-400 text-xs">${a.dept}</td><td class="p-3 text-center"><button type="button" onclick="window.removeCourseAttendee('${a.id}')" class="bg-red-50 text-red-600 px-3 py-1 rounded-md btn-action">移除</button></td></tr>`).join(''); 
     };
     window.handleSaveCourseAttendees = async function() { 
-      const btn = document.getElementById('btn-save-course-atts'); btn.innerText = "⏳ 儲存中..."; btn.disabled = true; try { 
+      const btn = document.getElementById('btn-save-course-atts'); if(btn) { btn.innerText = "⏳ 儲存中..."; btn.disabled = true; } 
+      try { 
         const origIds = window.g_records.filter(r => r.courseId === window.g_activeCourseId && r.isAttending).map(r => r.id);
         for(let id of origIds.filter(i => !window.g_courseManageAttendees.map(a => a.id).includes(i))) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', id)); 
         for(let a of window.g_courseManageAttendees) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', a.id), a, { merge: true }); 
         window.closeManageModal(); window.showMsg('✅ 已同步雲端名冊'); 
-      } catch(e) { window.customAlert('儲存失敗'); } finally { btn.innerText = "💾 儲存並同步至雲端名冊"; btn.disabled = false; } 
+      } catch(e) { window.customAlert('儲存失敗'); } finally { if(btn){ btn.innerText = "💾 儲存並同步至雲端名冊"; btn.disabled = false; } } 
     };
 
     window.renderEnrollForm = function() { 
         const c = window.g_courses.find(x => x.id === window.g_activeCourseId); if(!c) return; 
-        document.getElementById('enroll-course-name').innerText = c.name; 
-        document.getElementById('enroll-course-info').innerText = `訓練日期：${c.startTime.replace('T',' ')}`; 
+        const head = document.getElementById('enroll-course-name'), info = document.getElementById('enroll-course-info'); 
+        if(head) head.innerText = c.name; if(info) info.innerText = `訓練日期：${c.startTime.replace('T',' ')}`; 
     };
     window.handleEmpIdInput = function(e) {
-      const eid = e.target.value.toUpperCase(); document.getElementById('enroll-empId').value = eid;
+      const eid = e.target.value.toUpperCase(); const empEl = document.getElementById('enroll-empId'); if(empEl) empEl.value = eid;
       const wB = document.getElementById('enroll-warning'), nI = document.getElementById('enroll-name'), dD = document.getElementById('enroll-dept-display'), dH = document.getElementById('enroll-dept');
       const mE = (window.g_config.employees||[]).find(x => String(x.empId).trim() === eid);
       if(mE) { 
-        nI.value = mE.name; dD.value = mE.dept; dH.value = mE.dept;
+        if(nI) nI.value = mE.name; if(dD) dD.value = mE.dept; if(dH) dH.value = mE.dept;
         const rec = window.g_records.find(r => r.courseId === window.g_activeCourseId && String(r.empId).trim() === eid);
-        if(rec) { wB.classList.remove('hidden'); if(rec.isAttending) document.getElementById('isAttendingY').checked = true; else document.getElementById('isAttendingN').checked = true; } 
-        else { wB.classList.add('hidden'); document.getElementById('isAttendingY').checked = true; }
+        if(rec) { if(wB) wB.classList.remove('hidden'); const rb = document.getElementById(rec.isAttending ? 'isAttendingY' : 'isAttendingN'); if(rb) rb.checked = true; } 
+        else { if(wB) wB.classList.add('hidden'); const ry = document.getElementById('isAttendingY'); if(ry) ry.checked = true; }
         return; 
-      } nI.value = ''; dD.value = ''; dH.value = ''; wB.classList.add('hidden');
+      } if(nI) nI.value = ''; if(dD) dD.value = ''; if(dH) dH.value = ''; if(wB) wB.classList.add('hidden');
     };
     window.handleEnrollSubmit = async function(e) {
-      e.preventDefault(); const eid = document.getElementById('enroll-empId').value.toUpperCase(), nm = document.getElementById('enroll-name').value, dp = document.getElementById('enroll-dept').value;
-      if(!nm) return window.customAlert('查無資料，請先連繫管理員！');
+      e.preventDefault(); const eEl = document.getElementById('enroll-empId'), nEl = document.getElementById('enroll-name'), dEl = document.getElementById('enroll-dept');
+      if(!eEl || !nEl || !dEl) return;
+      const eid = eEl.value.toUpperCase(), nm = nEl.value, dp = dEl.value;
+      if(!nm) return window.customAlert('查無資料，請連繫管理員！');
       const ex = window.g_records.find(r => r.courseId === window.g_activeCourseId && String(r.empId).trim() === eid);
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', ex ? ex.id : window.generateId()), { id: ex ? ex.id : window.generateId(), courseId: window.g_activeCourseId, dept: dp, empId: eid, name: nm, isAttending: document.querySelector('input[name="isAttending"]:checked').value==='Y', signatureData: ex?ex.signatureData:null });
+      const targetId = ex ? ex.id : window.generateId();
+      const rBtn = document.querySelector('input[name="isAttending"]:checked');
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', targetId), { id: targetId, courseId: window.g_activeCourseId, dept: dp, empId: eid, name: nm, isAttending: rBtn ? (rBtn.value==='Y') : true, signatureData: ex?ex.signatureData:null });
       window.switchView('view-enroll-success');
     };
 
     window.renderSignList = function() {
       const c = window.g_courses.find(x => x.id === window.g_activeCourseId); if(!c) return;
-      document.getElementById('sign-course-name').innerText = c.name; const kw = document.getElementById('sign-search').value.toLowerCase();
+      const head = document.getElementById('sign-course-name'), sInput = document.getElementById('sign-search');
+      if(head) head.innerText = c.name; const kw = sInput ? sInput.value.toLowerCase() : '';
       const uns = window.g_records.filter(r => r.courseId === c.id && r.isAttending && !r.signatureData), sgn = window.g_records.filter(r => r.courseId === c.id && r.isAttending && r.signatureData);
       const fil = uns.filter(r => String(r.name).includes(kw) || String(r.empId||'').toLowerCase().includes(kw));
-      document.getElementById('unsigned-list').innerHTML = (fil.length === 0) ? '<p class="p-6 text-center text-gray-400 font-bold">目前無待簽到學員</p>' : 
-        fil.map(r => `<button type="button" onclick="window.startSign('${r.id}', '${r.name}')" class="w-full text-left bg-white p-5 rounded-[1.5rem] shadow-sm border-4 border-transparent hover:border-blue-200 flex justify-between items-center transition font-bold border-none btn-action text-gray-800 font-black"><div><div class="font-black text-xl font-black">${r.name}</div><div class="text-xs text-indigo-400 uppercase font-bold">${r.empId} | ${r.dept}</div></div><span class="text-indigo-600 font-black bg-indigo-50 px-4 py-2 rounded-lg text-sm border border-indigo-100 font-black">點我簽名 👉</span></button>`).join('');
-      const sc = document.getElementById('signed-list-container'); if (sgn.length > 0) { sc.classList.remove('hidden'); document.getElementById('signed-count').innerText = `${sgn.length} 人`; document.getElementById('signed-list').innerHTML = sgn.map(r => `<span class="bg-green-50 text-green-700 text-xs px-4 py-1.5 rounded-lg border border-green-100 font-black shadow-sm font-bold">${r.name}</span>`).join(''); } else sc.classList.add('hidden');
+      const list = document.getElementById('unsigned-list');
+      if(list) list.innerHTML = (fil.length === 0) ? '<p class="p-6 text-center text-gray-400">目前無待簽到學員</p>' : 
+        fil.map(r => `<button type="button" onclick="window.startSign('${r.id}', '${r.name}')" class="w-full text-left bg-white p-5 rounded-2xl shadow-sm hover:border-blue-200 border-2 border-transparent flex justify-between items-center transition btn-action"><div><div class="text-xl font-bold">${r.name}</div><div class="text-xs text-gray-400 mt-1 uppercase">${r.empId} | ${r.dept}</div></div><span class="text-blue-600 bg-blue-50 px-4 py-2 rounded-lg text-sm font-bold">點我簽名 👉</span></button>`).join('');
+      const sc = document.getElementById('signed-list-container'); 
+      if (sc && sgn.length > 0) { sc.classList.remove('hidden'); const scEl = document.getElementById('signed-count'); if(scEl) scEl.innerText = `${sgn.length} 人`; const sl = document.getElementById('signed-list'); if(sl) sl.innerHTML = sgn.map(r => `<span class="bg-gray-100 text-gray-700 text-xs px-3 py-1.5 rounded-md border border-gray-200">${r.name}</span>`).join(''); } 
+      else if(sc) sc.classList.add('hidden');
     };
-    window.startSign = function(id, n) { window.g_signingRecordId = id; document.getElementById('sign-list-container').classList.add('hidden'); document.getElementById('signature-pad-container').classList.remove('hidden'); document.getElementById('sign-current-user').innerText = n; window.initSignaturePad(); };
-    window.cancelSign = function() { window.g_signingRecordId = null; document.getElementById('sign-list-container').classList.remove('hidden'); document.getElementById('signature-pad-container').classList.add('hidden'); document.getElementById('sign-search').value = ''; window.renderSignList(); };
+
+    window.startSign = function(id, n) { 
+        window.g_signingRecordId = id; 
+        const slc = document.getElementById('sign-list-container'), spc = document.getElementById('signature-pad-container'), userEl = document.getElementById('sign-current-user');
+        if(slc) slc.classList.add('hidden'); if(spc) spc.classList.remove('hidden'); if(userEl) userEl.innerText = n; 
+        window.initSignaturePad(); 
+    };
+    window.cancelSign = function() { 
+        window.g_signingRecordId = null; 
+        const slc = document.getElementById('sign-list-container'), spc = document.getElementById('signature-pad-container'), sInp = document.getElementById('sign-search');
+        if(slc) slc.classList.remove('hidden'); if(spc) spc.classList.add('hidden'); if(sInp) sInp.value = ''; 
+        window.renderSignList(); 
+    };
     
     // --- 簽名板核心 ---
     window.initSignaturePad = function() {
         const cvsEl = document.getElementById('sig-canvas'); if (!cvsEl) return;
-        cvs = cvsEl; ctx = cvs.getContext('2d');
-        ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000';
+        sigCvs = cvsEl; sigCtx = sigCvs.getContext('2d');
+        sigCtx.lineWidth = 3; sigCtx.lineCap = 'round'; sigCtx.lineJoin = 'round'; sigCtx.strokeStyle = '#000';
         window.clearCanvas();
-        const getP = e => { const r = cvs.getBoundingClientRect(); const cX = (e.touches ? e.touches[0].clientX : e.clientX); const cY = (e.touches ? e.touches[0].clientY : e.clientY); return { x: cX - r.left, y: cY - r.top }; };
-        const startD = e => { e.preventDefault(); isDrawing = true; const p = getP(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-        const moveD = e => { e.preventDefault(); if(!isDrawing) return; const p = getP(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-        const endD = e => { e.preventDefault(); if(isDrawing){ ctx.closePath(); isDrawing=false; sigHistory.push(cvs.toDataURL()); document.getElementById('btn-undo').disabled = false; } };
-        cvs.onmousedown = startD; cvs.onmousemove = moveD; cvs.onmouseup = endD;
-        cvs.ontouchstart = startD; cvs.ontouchmove = moveD; cvs.ontouchend = endD;
+        const getP = e => { const r = sigCvs.getBoundingClientRect(), cX = (e.touches ? e.touches[0].clientX : e.clientX), cY = (e.touches ? e.touches[0].clientY : e.clientY); return { x: cX - r.left, y: cY - r.top }; };
+        sigCvs.onmousedown = sigCvs.ontouchstart = e => { e.preventDefault(); isDrawingSign = true; const p = getP(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); };
+        sigCvs.onmousemove = sigCvs.ontouchmove = e => { e.preventDefault(); if(!isDrawingSign) return; const p = getP(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); };
+        sigCvs.onmouseup = sigCvs.ontouchend = e => { e.preventDefault(); if(isDrawingSign){ sigCtx.closePath(); isDrawingSign=false; sigHistoryLog.push(sigCvs.toDataURL()); const b = document.getElementById('btn-undo'); if(b) b.disabled = false; } };
     };
-    window.clearCanvas = function() { if(!ctx) return; ctx.fillStyle = '#f9fafb'; ctx.fillRect(0,0,cvs.width,cvs.height); sigHistory = [cvs.toDataURL()]; const b = document.getElementById('btn-undo'); if(b) b.disabled = true; };
-    window.undoCanvas = function() { if(sigHistory.length <= 1) return; sigHistory.pop(); const img = new Image(); img.src = sigHistory[sigHistory.length-1]; img.onload = () => { ctx.clearRect(0,0,cvs.width,cvs.height); ctx.drawImage(img,0,0); }; if(sigHistory.length<=1) document.getElementById('btn-undo').disabled=true; };
-    window.saveSignature = async function() { const dataUrl = cvs.toDataURL('image/png'), r = window.g_records.find(x => x.id === window.g_signingRecordId); if(r) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r, signatureData: dataUrl }); window.showMsg('✅ 簽到完成'); window.cancelSign(); } };
+    window.clearCanvas = () => { if(!sigCtx || !sigCvs) return; sigCtx.fillStyle = '#f9fafb'; sigCtx.fillRect(0,0,sigCvs.width,sigCvs.height); sigHistoryLog = [sigCvs.toDataURL()]; const b = document.getElementById('btn-undo'); if(b) b.disabled = true; };
+    window.undoCanvas = () => { if(sigHistoryLog.length <= 1) return; sigHistoryLog.pop(); const img = new Image(); img.src = sigHistoryLog[sigHistoryLog.length-1]; img.onload = () => { sigCtx.clearRect(0,0,sigCvs.width,sigCvs.height); sigCtx.drawImage(img,0,0); }; if(sigHistoryLog.length<=1) { const b = document.getElementById('btn-undo'); if(b) b.disabled=true; } };
+    window.saveSignature = async () => { if(!sigCvs) return; const dataUrl = sigCvs.toDataURL('image/png'), r = window.g_records.find(x => x.id === window.g_signingRecordId); if(r) { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r, signatureData: dataUrl }); window.showMsg('✅ 簽到完成'); window.cancelSign(); } };
 
-    window.updateUI();
+    // ----------------------------------------------------------------------
+    // ✅ 步驟八：啟動監聽器 (放在所有函數宣告完畢後)
+    // ----------------------------------------------------------------------
+    onAuthStateChanged(auth, u => { 
+        if(u){ window.setupListeners(); window.checkUrlParams(); } 
+    });
+    signInAnonymously(auth).catch(e => window.customAlert("連線失敗"));
+
   </script>
 </body>
 </html>
