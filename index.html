@@ -3,13 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  
+  <!-- 強制瀏覽器絕對不抓取舊暫存 -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  
   <title>教育訓練簽到系統 | 偉勝乾燥工業</title>
   
   <!-- 引入 Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 html2pdf.js 解決內嵌環境無法列印/匯出 PDF 的問題 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   
   <style>
-    /* ✅ 設定微軟正黑體為全域最優先字體 */
+    /* ✅ 網頁全域字體 (非列印時) */
     * {
       font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
     }
@@ -17,12 +25,38 @@
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
     
+    /* 🖨️ 列印與 PDF 格式專用傳統 CSS (確保絕對不跑版) */
+    .doc-table { width: 100%; border-collapse: collapse; margin-bottom: 0; table-layout: fixed; font-family: "PMingLiU", "新細明體", serif !important; }
+    .doc-table th, .doc-table td { border: 1px solid #000; padding: 2px 4px; text-align: center; font-size: 13.5px; height: 32px; color: #000; }
+    .doc-table-left { text-align: left !important; padding-left: 15px !important; }
+    
+    /* 裁切標記 */
+    .crop-mark { position: absolute; width: 15px; height: 15px; border-color: #999; border-style: solid; z-index: 20; }
+    .crop-tl { top: 6mm; left: 6mm; border-width: 1px 0 0 1px; }
+    .crop-tr { top: 6mm; right: 6mm; border-width: 1px 1px 0 0; }
+    .crop-bl { bottom: 6mm; left: 6mm; border-width: 0 0 1px 1px; }
+    .crop-br { bottom: 6mm; right: 6mm; border-width: 0 1px 1px 0; }
+
+    /* A4 單頁容器設定 (自動分頁用) */
+    .a4-page {
+      box-sizing: border-box; padding: 10mm 15mm; position: relative;
+      width: 210mm; min-height: 297mm;
+      background-color: white !important; margin: 0 auto 20px auto;
+      overflow: hidden;
+    }
+
+    /* 匯出 PDF 與 原生列印時設定 */
     @media print {
       body * { visibility: hidden; }
-      #printable-area, #printable-area * { visibility: visible; }
-      #printable-area { position: absolute; left: 0; top: 0; width: 100% !important; margin: 0 !important; padding: 0 !important; border: none !important; box-shadow: none !important; }
       .no-print { display: none !important; }
-      @page { size: A4 portrait; margin: 10mm; }
+      #printable-area-wrapper { position: absolute; left: 0; top: 0; margin: 0; padding: 0; width: 100%; background: white !important; display: block; }
+      #printable-area-wrapper * { visibility: visible; }
+      .a4-page { 
+        margin: 0 !important; border: none !important; box-shadow: none !important; 
+        page-break-after: always; /* 強制分頁 */
+      }
+      .a4-page:last-child { page-break-after: auto; }
+      @page { size: A4 portrait; margin: 0mm; } 
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     }
     
@@ -34,11 +68,10 @@
     .btn-action { cursor: pointer; transition: all 0.2s; border: none; }
     .btn-action:active { transform: scale(0.96); }
     
-    /* 下拉選單樣式美化 */
     select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem; padding-right: 2.5rem; }
   </style>
 </head>
-<body class="bg-gray-100 relative min-h-screen text-gray-800">
+<body class="bg-gray-100 relative min-h-screen text-gray-800 transition-all duration-300">
 
   <!-- ==================== 自訂對話框 ==================== -->
   <div id="custom-dialog" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[50000] hidden p-4 animate-fade-in backdrop-blur-sm no-print">
@@ -66,19 +99,19 @@
   </div>
 
   <!-- 1. 載入中畫面 -->
-  <div id="view-loading" class="app-view min-h-screen flex items-center justify-center bg-white">
-    <div class="text-center flex flex-col items-center">
+  <div id="view-loading" class="app-view min-h-screen flex items-center justify-center bg-transparent">
+    <div class="text-center flex flex-col items-center bg-white/80 p-8 rounded-3xl shadow-lg backdrop-blur-sm">
       <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6"></div>
       <h2 class="text-2xl font-bold text-gray-800 tracking-widest">系統初始化中...</h2>
     </div>
   </div>
 
   <!-- 2. 管理員登入 -->
-  <div id="view-login" class="app-view hidden min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 relative font-bold">
-    <div class="mb-10 text-center flex flex-col items-center animate-fade-in">
+  <div id="view-login" class="app-view hidden min-h-screen flex flex-col items-center justify-center p-4 relative font-bold bg-transparent">
+    <div class="mb-10 text-center flex flex-col items-center animate-fade-in bg-white/70 p-6 rounded-3xl backdrop-blur-sm shadow-sm">
       <img id="login-logo" src="" alt="Logo" class="w-32 h-32 mb-6 object-contain" />
       <h1 class="text-3xl md:text-4xl tracking-widest font-bold">偉勝乾燥工業股份有限公司</h1>
-      <h2 class="text-lg text-gray-500 mt-2 tracking-widest">WEISUN INDUSTRIAL CO., LTD.</h2>
+      <h2 class="text-lg text-gray-600 mt-2 tracking-widest">WEISUN INDUSTRIAL CO., LTD.</h2>
     </div>
     <div class="w-full max-w-md bg-white p-10 rounded-3xl shadow-2xl border-t-8 border-blue-800">
       <div class="text-center mb-8 border-b pb-6">
@@ -88,27 +121,27 @@
         <div class="mb-8">
           <input type="password" id="login-password" placeholder="請輸入管理密碼..." required class="w-full border-2 border-gray-200 rounded-2xl p-5 focus:border-blue-600 outline-none text-center text-2xl font-bold bg-gray-50" />
         </div>
-        <button type="submit" class="w-full bg-blue-800 text-white font-bold text-xl py-5 rounded-2xl hover:bg-blue-900 transition btn-action">進入管理系統</button>
+        <button type="submit" class="w-full bg-blue-800 text-white font-bold text-xl py-5 rounded-2xl hover:bg-blue-900 transition btn-action shadow-lg">進入管理系統</button>
       </form>
     </div>
   </div>
 
   <!-- 3. 管理後台主列表 -->
-  <div id="view-admin-list" class="app-view hidden max-w-7xl mx-auto p-6 animate-fade-in font-bold">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 border-b-2 pb-6 gap-6">
+  <div id="view-admin-list" class="app-view hidden max-w-7xl mx-auto p-6 animate-fade-in font-bold bg-transparent">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 border-b-2 border-gray-300/50 pb-6 gap-6 bg-white/80 p-6 rounded-3xl shadow-sm backdrop-blur-sm">
       <div>
         <h1 class="text-3xl font-bold text-blue-900">訓練管理首頁</h1>
-        <p class="text-gray-500 mt-2">管理課程、報名名冊、會議室與員工檔案</p>
+        <p class="text-gray-600 mt-2">管理課程、報名名冊、會議室與員工檔案</p>
       </div>
       <div class="flex gap-4">
         <button type="button" onclick="window.toggleSettings(true)" class="bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-700 transition shadow-md btn-action flex items-center gap-2">⚙️ 系統設定與主檔案</button>
-        <button type="button" onclick="window.handleLogout()" class="bg-gray-200 text-gray-700 px-6 py-3 rounded-full hover:bg-gray-300 transition btn-action">登出</button>
+        <button type="button" onclick="window.handleLogout()" class="bg-gray-200 text-gray-700 px-6 py-3 rounded-full hover:bg-gray-300 transition btn-action shadow-sm">登出</button>
       </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
       <!-- 新增/編輯課程表單 -->
-      <div class="lg:col-span-4 bg-white p-8 rounded-3xl shadow-xl border-t-4 border-blue-600 h-fit">
+      <div class="lg:col-span-4 bg-white/95 backdrop-blur-md p-8 rounded-3xl shadow-xl border-t-4 border-blue-600 h-fit">
         <h2 id="course-form-title" class="text-2xl font-bold mb-8 text-blue-800 flex items-center gap-2"><span class="text-3xl">✨</span>新增課程</h2>
         <form onsubmit="window.handleSaveCourse(event)" class="space-y-6">
           <input type="hidden" id="form-course-id" />
@@ -121,28 +154,36 @@
             <input type="text" id="form-lecturer" required class="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-blue-500 bg-gray-50" />
           </div>
           
-          <div class="bg-blue-50 p-5 rounded-2xl border-2 border-blue-100 shadow-inner">
+          <div class="bg-blue-50/80 p-5 rounded-2xl border-2 border-blue-100 shadow-inner">
             <label class="block text-sm text-blue-900 mb-2">📅 上課日期</label>
-            <input type="date" id="form-date" onchange="window.calcHours()" required class="w-full border-2 border-white rounded-xl p-3 text-lg outline-none mb-4" />
+            <input type="date" id="form-date" onchange="window.calcHours()" required class="w-full border-2 border-white rounded-xl p-3 text-lg outline-none mb-4 bg-white" />
             
             <div class="space-y-4">
               <div>
                 <label class="block text-xs text-blue-800 mb-1">⏰ 開始時間 (24H)</label>
                 <div class="grid grid-cols-2 gap-2">
-                  <select id="form-start-h" onchange="window.calcHours()" class="border-2 border-white rounded-l-xl p-2 text-base outline-none cursor-pointer"></select>
-                  <select id="form-start-m" onchange="window.calcHours()" class="border-2 border-white rounded-r-xl p-2 text-base outline-none cursor-pointer">
+                  <select id="form-start-h" onchange="window.calcHours()" class="border-2 border-white rounded-l-xl p-2 text-base outline-none cursor-pointer bg-white"></select>
+                  <select id="form-start-m" onchange="window.calcHours()" class="border-2 border-white rounded-r-xl p-2 text-base outline-none cursor-pointer bg-white">
                     <option value="00">00 分</option>
+                    <option value="10">10 分</option>
+                    <option value="20">20 分</option>
                     <option value="30">30 分</option>
+                    <option value="40">40 分</option>
+                    <option value="50">50 分</option>
                   </select>
                 </div>
               </div>
               <div>
                 <label class="block text-xs text-blue-800 mb-1">🏁 結束時間 (24H)</label>
                 <div class="grid grid-cols-2 gap-2">
-                  <select id="form-end-h" onchange="window.calcHours()" class="border-2 border-white rounded-l-xl p-2 text-base outline-none cursor-pointer"></select>
-                  <select id="form-end-m" onchange="window.calcHours()" class="border-2 border-white rounded-r-xl p-2 text-base outline-none cursor-pointer">
+                  <select id="form-end-h" onchange="window.calcHours()" class="border-2 border-white rounded-l-xl p-2 text-base outline-none cursor-pointer bg-white"></select>
+                  <select id="form-end-m" onchange="window.calcHours()" class="border-2 border-white rounded-r-xl p-2 text-base outline-none cursor-pointer bg-white">
                     <option value="00">00 分</option>
+                    <option value="10">10 分</option>
+                    <option value="20">20 分</option>
                     <option value="30">30 分</option>
+                    <option value="40">40 分</option>
+                    <option value="50">50 分</option>
                   </select>
                 </div>
               </div>
@@ -162,61 +203,51 @@
             </div>
           </div>
           <button type="submit" id="form-submit-btn" class="w-full bg-blue-700 text-white text-xl py-4 rounded-2xl shadow-xl hover:bg-blue-800 btn-action mt-2">建立課程</button>
-          <button type="button" id="form-cancel-btn" onclick="window.resetCourseForm()" class="hidden w-full bg-gray-200 text-gray-700 py-3 rounded-xl mt-2 btn-action">取消編輯</button>
+          <button type="button" id="form-cancel-btn" onclick="window.resetCourseForm()" class="hidden w-full bg-gray-200 text-gray-700 py-3 rounded-xl mt-2 btn-action shadow-sm">取消編輯</button>
         </form>
       </div>
 
       <!-- 課程清單展示區 -->
       <div class="lg:col-span-8">
-        <h2 class="text-2xl mb-8 text-gray-800 border-l-8 border-gray-800 pl-4">雲端課程列表</h2>
+        <div class="bg-white/80 p-4 rounded-3xl backdrop-blur-sm mb-6 inline-block shadow-sm">
+           <h2 class="text-2xl text-gray-800 border-l-8 border-gray-800 pl-4">雲端課程列表</h2>
+        </div>
         <div id="course-list-container" class="space-y-6"></div>
       </div>
     </div>
   </div>
 
   <!-- 4. 單一課程詳情 (🎫 邀請與簽到管理) -->
-  <div id="view-admin-detail" class="app-view hidden max-w-7xl mx-auto p-4 md:p-8 animate-fade-in font-bold">
-    <div class="flex flex-col md:flex-row justify-between items-center mb-8 no-print gap-4">
+  <div id="view-admin-detail" class="app-view hidden max-w-7xl mx-auto p-4 md:p-8 animate-fade-in font-bold bg-transparent">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 no-print gap-4 bg-white/80 p-6 rounded-3xl shadow-sm backdrop-blur-sm">
       <button type="button" onclick="window.switchView('view-admin-list')" class="text-gray-600 bg-white border-2 border-gray-200 px-6 py-3 rounded-full hover:bg-gray-50 shadow-sm btn-action">← 返回課程清單</button>
       <div class="flex gap-4 w-full md:w-auto">
-        <button type="button" onclick="window.openManageModal()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl hover:bg-indigo-700 shadow-lg btn-action flex-1 md:flex-none">👥 管理報名名冊</button>
-        <button type="button" onclick="window.print()" class="bg-red-600 text-white px-8 py-3 rounded-2xl hover:bg-red-700 shadow-lg btn-action flex-1 md:flex-none">列印簽到表 (PDF)</button>
+        <button type="button" onclick="window.openManageModal()" class="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 shadow-md btn-action flex-1 md:flex-none">👥 名冊管理</button>
+        <button type="button" onclick="window.exportPDF()" class="bg-green-600 text-white px-8 py-3 rounded-xl hover:bg-green-700 shadow-md btn-action flex-1 md:flex-none">📥 匯出 PDF</button>
       </div>
     </div>
     
-    <!-- QR 碼區域 (由 JS 動態產生) -->
+    <!-- QR 碼區域 -->
     <div id="detail-actions-area" class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 no-print"></div>
 
-    <!-- 可列印的簽到表區域 -->
-    <div id="printable-area" class="bg-white p-12 rounded-3xl shadow-2xl border border-gray-200 min-w-max text-black print:p-0 print:border-0 print:shadow-none">
-      <div class="flex items-center justify-center gap-10 mb-8 border-b-4 border-black pb-8">
-        <div class="w-[120px] text-right"><img id="print-logo" src="" class="w-24 h-24 object-contain inline-block" /></div>
-        <div class="text-left">
-          <div class="text-3xl tracking-widest uppercase mb-1">偉勝乾燥工業股份有限公司</div>
-          <div class="text-xl tracking-widest uppercase text-gray-700">WEISUN INDUSTRIAL CO., LTD.</div>
-        </div>
-      </div>
-      <div class="text-center mb-8"><h1 class="text-2xl tracking-[0.3em] pb-2 inline-block border-b-2 border-black px-8">教育訓練學員名冊</h1></div>
-      <table class="w-full border-collapse border-4 border-black text-sm">
-        <tbody id="print-table-header"></tbody>
-        <tbody id="print-table-body"></tbody>
-      </table>
-      <div class="text-right mt-8 text-lg tracking-widest">QP-02-02-D</div>
+    <!-- 🖨️ 可列印的簽到表預覽區域 -->
+    <div class="w-full overflow-x-auto print-overflow-wrapper pb-8 flex flex-col items-center bg-transparent pt-8 no-print" id="printable-area-wrapper">
+      <!-- 這裡的內容將由 renderAdminDetail() 動態插入多頁 A4 -->
     </div>
   </div>
 
-  <!-- 5. 員工報名頁面 -->
-  <div id="view-enroll" class="app-view hidden min-h-screen bg-gray-100 flex items-center justify-center p-4 font-bold">
-    <div class="bg-white w-full max-w-lg p-10 rounded-3xl shadow-2xl border-t-[12px] border-blue-600 relative mt-12 animate-fade-in">
+  <!-- 5. 員工報名頁面 (含動態 LOGO) -->
+  <div id="view-enroll" class="app-view hidden min-h-screen flex items-center justify-center p-4 font-bold bg-transparent">
+    <div class="bg-white/95 backdrop-blur-md w-full max-w-lg p-10 rounded-3xl shadow-2xl border-t-[12px] border-blue-600 relative mt-12 animate-fade-in">
       <div class="text-center mb-8">
-        <img id="enroll-logo" src="" class="w-24 h-24 object-contain mx-auto bg-white p-4 rounded-full -mt-24 shadow-xl border-4 border-blue-50 mb-4" />
+        <img id="enroll-logo" src="" class="w-24 h-24 object-contain mx-auto -mt-24 mb-4 drop-shadow-md" />
         <h2 class="text-3xl tracking-wider text-gray-800">教育訓練報名表</h2>
       </div>
       <div id="enroll-warning" class="hidden mb-6 border-4 border-red-500 bg-red-50 p-4 rounded-2xl text-center shadow-md">
          <p class="text-red-700 text-xl mb-1">⚠️ 您已填寫過資料</p>
          <p class="text-red-600 text-sm">下方已載入您儲存的報名狀態</p>
       </div>
-      <div class="bg-blue-50 p-6 rounded-2xl mb-8 border-2 border-blue-100">
+      <div class="bg-blue-50/80 p-6 rounded-2xl mb-8 border-2 border-blue-100 shadow-inner">
         <h3 id="enroll-course-name" class="text-blue-900 text-xl mb-2 border-b-2 border-blue-200 pb-2">載入中...</h3>
         <p id="enroll-course-info" class="text-blue-800 text-lg"></p>
       </div>
@@ -232,8 +263,8 @@
         <div class="pt-2">
           <label class="block text-xl mb-4 text-gray-700">是否參加本次課程？</label>
           <div class="flex gap-4">
-            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer hover:bg-blue-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 transition shadow-sm"><input type="radio" id="isAttendingY" name="isAttending" value="Y" checked class="w-6 h-6 text-blue-600" /> <span class="ml-3 text-lg text-gray-700">參加</span></label>
-            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer hover:bg-red-50 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 transition shadow-sm"><input type="radio" id="isAttendingN" name="isAttending" value="N" class="w-6 h-6 text-red-600" /> <span class="ml-3 text-lg text-gray-700">不參加</span></label>
+            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer bg-white hover:bg-blue-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 transition shadow-sm"><input type="radio" id="isAttendingY" name="isAttending" value="Y" checked class="w-6 h-6 text-blue-600" /> <span class="ml-3 text-lg text-gray-700">參加</span></label>
+            <label class="flex-1 flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer bg-white hover:bg-red-50 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 transition shadow-sm"><input type="radio" id="isAttendingN" name="isAttending" value="N" class="w-6 h-6 text-red-600" /> <span class="ml-3 text-lg text-gray-700">不參加</span></label>
           </div>
         </div>
         <div class="pt-4"><button type="submit" class="w-full bg-blue-600 text-white text-2xl py-4 rounded-xl shadow-lg btn-action border-none">確認送出報名</button></div>
@@ -241,55 +272,51 @@
     </div>
   </div>
 
-  <!-- 報名成功畫面 -->
-  <div id="view-enroll-success" class="app-view hidden min-h-screen bg-gray-50 flex items-center justify-center p-4 font-bold">
-    <div class="bg-white w-full max-w-md p-12 rounded-3xl shadow-2xl border-t-[12px] border-green-500 text-center animate-fade-in">
+  <!-- ✅ 單獨乾淨的報名成功畫面 (保證只剩下繼續報名一顆按鈕) -->
+  <div id="view-success-page" class="app-view hidden min-h-screen flex items-center justify-center p-4 font-bold bg-transparent">
+    <div class="bg-white/95 backdrop-blur-md w-full max-w-md p-12 rounded-3xl shadow-2xl border-t-[12px] border-green-500 text-center animate-fade-in">
       <div class="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner border-4 border-green-200"><svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="6" d="M5 13l4 4L19 7"></path></svg></div>
       <h2 class="text-4xl mb-8 text-gray-800">報名成功！</h2>
       <div class="bg-red-50 py-4 px-4 rounded-2xl border-4 border-red-100 mb-8 shadow-sm"><p class="text-xl text-red-600 tracking-widest">現在可以關閉此網頁</p></div>
-      
       <div class="flex flex-col gap-4 mt-2">
-        <button type="button" onclick="window.switchView('view-enroll', true)" class="w-full bg-gray-100 text-gray-700 py-4 rounded-xl hover:bg-gray-200 transition btn-action text-xl border-2 border-gray-200">⬅️ 返回上一頁 (原資料)</button>
-        <button type="button" onclick="window.switchView('view-enroll')" class="w-full bg-blue-600 text-white py-4 rounded-xl hover:bg-blue-700 shadow-md transition btn-action text-xl">📝 繼續報名 (新表單)</button>
+        <button type="button" onclick="window.switchView('view-enroll')" class="w-full bg-blue-600 text-white py-4 rounded-xl hover:bg-blue-700 shadow-md transition btn-action text-xl font-bold">📝 繼續報名 (新表單)</button>
       </div>
     </div>
   </div>
 
   <!-- 6. 現場簽到板 -->
-  <div id="view-sign" class="app-view hidden min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 font-bold">
+  <div id="view-sign" class="app-view hidden min-h-screen flex flex-col items-center justify-center p-4 font-bold bg-black/60 backdrop-blur-sm">
     <div class="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl relative mt-12 border-t-[8px] border-green-500 animate-fade-in">
       <div class="text-center mb-8 border-b-2 border-dashed border-gray-200 pb-6">
-        <img id="sign-logo" src="" class="w-20 h-20 object-contain mx-auto bg-white p-3 rounded-full -mt-20 shadow-xl border-4 mb-4" />
+        <img id="sign-logo" src="" class="w-20 h-20 object-contain mx-auto -mt-20 mb-4 drop-shadow-md" />
         <h2 class="text-3xl text-green-700 tracking-wider">課程現場簽到板</h2>
         <p id="sign-course-name" class="text-gray-800 mt-3 bg-green-50 inline-block px-6 py-2 rounded-full border border-green-200">載入中...</p>
       </div>
       <div id="sign-list-container">
         <div class="mb-6"><input type="text" id="sign-search" oninput="window.renderSignList()" placeholder="🔍 搜尋工號或姓名..." class="w-full border-2 border-blue-300 rounded-2xl p-4 text-xl outline-none bg-blue-50 focus:border-blue-600 transition shadow-inner" /></div>
         
-        <!-- 新增區塊：未簽到人員 -->
         <div class="mb-2 flex justify-between items-center px-2">
            <span class="text-sm text-gray-600 font-bold">📝 待簽到學員</span>
            <span id="unsigned-count" class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs"></span>
         </div>
         <div id="unsigned-list" class="bg-gray-50 border-2 border-gray-200 rounded-2xl p-3 max-h-[40vh] overflow-y-auto space-y-3 shadow-inner custom-scrollbar mb-6"></div>
         
-        <!-- 區塊：已簽到人員 -->
         <div id="signed-list-container" class="mt-4 pt-4 border-t-2 border-dashed border-gray-300">
           <p class="text-sm text-gray-600 mb-3 flex justify-between px-2 font-bold"><span>✅ 已完成簽到</span><span id="signed-count" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs"></span></p>
           <div id="signed-list" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1 custom-scrollbar"></div>
         </div>
       </div>
-      <!-- 畫布區域 -->
+      
+      <!-- 畫布區域 (無撤銷，僅清除與確認送出) -->
       <div id="signature-pad-container" class="hidden animate-fade-in text-center">
-        <div class="mb-6 bg-blue-50 p-4 rounded-2xl border border-blue-200 shadow-sm text-gray-600">正在為 <span id="sign-current-user" class="text-2xl text-blue-900 mx-2"></span> 進行簽名</div>
+        <div class="mb-4 bg-blue-50 p-4 rounded-2xl border border-blue-200 shadow-sm text-gray-600">正在為 <span id="sign-current-user" class="text-2xl text-blue-900 mx-2"></span> 進行簽名</div>
+
         <canvas id="sig-canvas" width="350" height="200" class="border-2 border-dashed border-gray-400 bg-gray-50 rounded-2xl cursor-crosshair touch-none w-full max-w-[350px] mx-auto mb-6"></canvas>
-        <div class="flex w-full justify-between gap-3">
-          <button type="button" onclick="window.clearCanvas()" class="flex-1 py-3 bg-red-50 text-red-600 rounded-xl btn-action border border-red-200">🗑️ 清除</button>
-          <!-- 加入 disabled 樣式，使其無法點擊時有明顯視覺回饋 -->
-          <button type="button" id="btn-undo" onclick="window.undoCanvas()" class="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl btn-action border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>↩️ 撤銷</button>
-          <button type="button" onclick="window.saveSignature()" class="flex-[1.5] py-3 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-xl shadow-xl btn-action">✅ 確認送出</button>
+        <div class="flex w-full justify-between gap-4">
+          <button type="button" onclick="window.clearCanvas()" class="flex-1 py-4 bg-red-50 text-red-600 rounded-xl btn-action border border-red-200 font-bold text-lg shadow-sm">🗑️ 清除</button>
+          <button type="button" onclick="window.saveSignature()" class="flex-[1.5] py-4 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-xl shadow-xl btn-action font-bold">✅ 確認送出</button>
         </div>
-        <button type="button" onclick="window.cancelSign()" class="w-full mt-6 py-2 text-red-500 underline bg-transparent btn-action">返回名單</button>
+        <button type="button" onclick="window.cancelSign()" class="w-full mt-6 py-2 text-gray-500 underline bg-transparent btn-action hover:text-gray-700">返回名單</button>
       </div>
     </div>
   </div>
@@ -305,9 +332,54 @@
         <div class="lg:col-span-4 space-y-6">
           <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-gray-600">🌐 正式網址</label><input type="text" id="setting-url" class="w-full border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 shadow-sm" /></div>
           <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-gray-600">🔑 修改密碼</label><input type="password" id="setting-pass" class="w-full border-2 border-white rounded-xl p-3 outline-none focus:border-red-500 shadow-sm" placeholder="不改請留空" /></div>
-          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-3 text-gray-600">🖼️ 企業 LOGO</label><div class="flex items-center gap-4"><div class="w-20 h-20 border-2 border-white rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-md"><img id="setting-logo-preview" src="" class="w-full h-full object-contain" /></div><input type="file" accept="image/*" onchange="window.handleLogoUpload(event)" class="text-xs w-full cursor-pointer" /></div></div>
-          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-indigo-800">🏢 部門管理 (一行一個)</label><textarea id="setting-departments" class="w-full h-32 border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 text-sm custom-scrollbar shadow-inner"></textarea></div>
-          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-blue-900">🏢 會議室管理 (一行一個)</label><textarea id="setting-meeting-rooms" class="w-full h-32 border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 text-sm custom-scrollbar shadow-inner"></textarea></div>
+          
+          <!-- ✅ 企業 LOGO 區塊 -->
+          <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm">
+            <label class="block text-sm mb-1 text-gray-600">🖼️ 企業 LOGO 替換</label>
+            <p class="text-xs text-blue-500 mb-3">(建議上傳背景透明的 PNG 檔)</p>
+            <div class="flex items-center gap-4 mb-5">
+              <div class="w-20 h-20 border-2 border-white rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+                <img id="setting-logo-preview" src="" class="w-full h-full object-contain" />
+              </div>
+              <input type="file" accept="image/*" onchange="window.handleLogoUpload(event)" class="text-xs w-full cursor-pointer text-gray-500" />
+            </div>
+            <!-- LOGO 調整滑桿 -->
+            <div class="pt-4 border-t border-gray-200">
+               <div class="flex justify-between items-center mb-2">
+                 <label class="block text-xs text-gray-500 font-bold">📏 列印 LOGO 顯示高度</label>
+                 <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono"><span id="logo-size-val">85</span> px</span>
+               </div>
+               <input type="range" id="setting-logo-size" min="40" max="150" value="85" oninput="document.getElementById('logo-size-val').innerText = this.value;" class="w-full accent-blue-600 cursor-pointer" />
+            </div>
+          </div>
+          
+          <!-- ✅ 系統整體背景底圖 -->
+          <div class="bg-purple-50 p-6 rounded-3xl border border-purple-200 shadow-sm">
+            <label class="block text-sm mb-3 text-purple-800">🖼️ 系統網頁背景底圖 (選填)</label>
+            <div class="flex items-center gap-4 mb-3">
+              <div class="w-32 h-20 border-2 border-dashed border-purple-300 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-md relative">
+                <img id="setting-bg-preview" src="" class="w-full h-full object-cover hidden" />
+                <span id="setting-bg-none" class="text-xs text-purple-400 absolute">無底圖</span>
+              </div>
+              <div class="flex-1">
+                 <input type="file" accept="image/*" onchange="window.handleBgUpload(event)" class="text-[10px] w-full cursor-pointer text-gray-500 mb-2" />
+                 <button type="button" onclick="window.clearBgUpload()" class="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 w-full btn-action">清除底圖</button>
+              </div>
+            </div>
+            <p class="text-[10px] text-purple-600 leading-relaxed">設定後，將會套用於「系統登入頁」與「管理後台」等畫面背景。</p>
+          </div>
+          
+          <!-- 表單版次設定 -->
+          <div class="bg-yellow-50 p-6 rounded-3xl border border-yellow-200 shadow-sm">
+             <label class="block text-sm mb-2 text-yellow-800">📄 表單版次 (右下角單號)</label>
+             <input type="text" id="setting-form-version" placeholder="例如: QP-02-02-D" class="w-full border-2 border-white rounded-xl p-3 outline-none focus:border-yellow-500 shadow-sm font-bold text-gray-700" />
+             <p class="text-xs text-yellow-700 mt-2">日後如需改版，直接在此修改即可套用至所有簽到表。</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+             <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-indigo-800">🏢 部門 (一行一個)</label><textarea id="setting-departments" class="w-full h-32 border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 text-sm custom-scrollbar shadow-inner"></textarea></div>
+             <div class="bg-gray-50 p-6 rounded-3xl border border-gray-200 shadow-sm"><label class="block text-sm mb-2 text-blue-900">📍 地點 (一行一個)</label><textarea id="setting-meeting-rooms" class="w-full h-32 border-2 border-white rounded-xl p-3 outline-none focus:border-blue-500 text-sm custom-scrollbar shadow-inner"></textarea></div>
+          </div>
         </div>
 
         <!-- 右欄檔案 -->
@@ -349,7 +421,6 @@
       <div class="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
         <div class="bg-blue-50 p-6 rounded-2xl border border-blue-200">
            <label class="block text-lg text-blue-900 mb-2">➕ 輸入工號新增報名</label>
-           <!-- 修改區塊：將輸入框、按鈕與新增的預覽文字區域整合 -->
            <div class="flex flex-col gap-2">
               <div class="flex gap-4">
                  <input type="text" id="course-manual-empId" oninput="window.handleManageEmpIdInput(event)" onkeydown="if(event.keyCode==13){event.preventDefault(); window.addAttendeeToCourse();}" placeholder="請輸入工號 (Wxxxx)" class="flex-1 border-2 border-white p-3 rounded-xl uppercase outline-none focus:border-blue-400 shadow-inner" />
@@ -364,7 +435,6 @@
                <span class="font-bold">目前已報名清單</span>
                <span id="course-manage-count" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs shadow-sm border border-blue-200">0 人</span>
              </div>
-             <!-- 新增區塊：匯入與匯出名單的按鈕 -->
              <div class="flex gap-2">
                <input type="file" id="course-csv-upload" accept=".csv" class="hidden" onchange="window.handleCourseCSVImport(event)" />
                <button type="button" onclick="document.getElementById('course-csv-upload').click()" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-md border border-indigo-200 hover:bg-indigo-100 transition btn-action flex items-center gap-1 shadow-sm">📥 <span class="hidden sm:inline">匯入名單</span></button>
@@ -471,11 +541,13 @@
         }
     };
 
+    // ✅ 確保視圖切換乾淨俐落
     window.switchView = function(vid, keepData = false) { 
       document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden')); 
       const target = document.getElementById(vid); if(target) target.classList.remove('hidden');
       const topBar = document.getElementById('top-bar');
-      if(topBar) topBar.style.display = (vid==='view-login'||vid==='view-loading'||vid==='view-enroll'||vid==='view-enroll-success'||vid==='view-sign') ? 'none' : 'flex'; 
+      // 確保只開啟需要的 view
+      if(topBar) topBar.style.display = (vid==='view-login'||vid==='view-loading'||vid==='view-enroll'||vid==='view-success-page'||vid==='view-sign') ? 'none' : 'flex'; 
       
       if(vid === 'view-enroll' && !keepData) {
          const ids = ['enroll-empId', 'enroll-name', 'enroll-dept-display', 'enroll-dept'];
@@ -489,6 +561,42 @@
     window.goToPage = function(pg) { window.switchView('view-'+pg); };
     window.goToDetail = function(id) { window.g_activeCourseId = id; window.switchView('view-admin-detail'); };
 
+    // 🖨️ 匯出 PDF 功能
+    window.exportPDF = function() {
+        window.showMsg('⏳ 產生 PDF 中，請稍候...');
+        const element = document.getElementById('printable-area-wrapper');
+        const pages = element.querySelectorAll('.a4-page');
+        
+        // 暫時去除陰影與間距，保證 PDF 純白乾淨
+        pages.forEach(p => {
+            p.classList.remove('shadow-2xl');
+            p.style.margin = '0';
+        });
+        
+        const opt = {
+            margin:       0,
+            filename:     '教育訓練簽到表.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak:    { mode: ['css', 'legacy'] }
+        };
+        
+        html2pdf().set(opt).from(element).save().then(() => {
+            window.showMsg('✅ PDF 匯出完成！');
+            pages.forEach(p => {
+                p.classList.add('shadow-2xl');
+                p.style.margin = '0 auto 20px auto';
+            });
+        }).catch(err => {
+            window.customAlert('PDF 匯出失敗，請再試一次');
+            pages.forEach(p => {
+                p.classList.add('shadow-2xl');
+                p.style.margin = '0 auto 20px auto';
+            });
+        });
+    };
+
     // ----------------------------------------------------------------------
     // ✅ 步驟二：Firebase 變數與狀態宣告
     // ----------------------------------------------------------------------
@@ -496,11 +604,12 @@
     const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app), appId = "weisun-training-app";
 
     window.g_courses = []; window.g_records = []; 
-    window.g_config = { password: '888', publicUrl: '', logoData: '', departments: [], meetingRooms: [], employees: [] };
+    // 預設設定
+    window.g_config = { password: '888', publicUrl: '', logoData: '', formVersion: 'QP-02-02-D', logoHeight: 85, bgData: '', departments: [], meetingRooms: [], employees: [] };
     window.g_activeCourseId = null; window.g_editingMasterEid = null; window.g_courseManageAttendees = [];
     window.g_signingRecordId = null;
     
-    let sigCvs = null, sigCtx = null, isDrawingSign = false, sigHistoryLog = [];
+    let sigCvs = null, sigCtx = null, isDrawingSign = false;
     const DEFAULT_LOGO = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDAwIj4KICA8IS0tIFJlZCBVIHN5bWJvbHMgLS0+CiAgPHBhdGggZD0iTTE1MCAxNjAgdjYwIGE0MCA0MCAwIDAgMCA4MCAwIHYtODAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0U2MDAxMiIgc3Ryb2tlLXdpZHRoPSIyNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPHBhdGggZD0iTTI1MCAxNjAgdi02MCBhNDAgNDAgMCAwIDAgLTgwIDAgdjgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNFNjAwMTIiIHN0cm9rZS13aWR0aD0iMjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwhLS0gd2Vpc3VuIHRleHQgLS0+CiAgPHRleHQgeD0iMTk1IiB5PSIyNjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI2NSIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMzMTU0NkQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSIyIj53ZWlzdW48L3RleHQ+CiAgPCEtLSByZWQgZG90IC0tPgogIDxjaXJjbGUgY3g9IjIxNSIgY3k9IjIwMCIgcj0iOCIgZmlsbD0iI0U2MDAxMiIgLz4KICA8IS0tIHNpbmNlIDE5NzYgLS0+CiAgPHRleHQgeD0iMzIwIiB5PSIyMzAiIGZvbnQtZmFtaWx5PSJjdXJzaXZlLCBBcmlhbCIgZm9udC1zaXplPSIyMCIgZm9udC1zdHlsZT0iaXRhbGljIiBmaWxsPSIjMzE1NDZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5zaW5jZSAxOTc2PC90ZXh0PgogIDwhLS0g5YGJ5Yud5Lm+54Wl5bel5qWtIC0tPgogIDx0ZXh0IHg9IjE5NSIgeT0iMzEwIiBmb250LWZhbWlseT0iJ01pY3Jvc29mdCBKaGVuZ0hlaScsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjYiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMzE1NDZEIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj41YGJ5Yud5Lm+54Wl5bel5qWtPC90ZXh0Pgo8L3N2Zz4=";
 
     window.syncConfigToCloud = async function() { 
@@ -537,6 +646,14 @@
     window.updateUI = function() { 
       const av = document.querySelector('.app-view:not(.hidden)'); if(!av) return; 
       
+      // 動態載入系統背景底圖
+      if (window.g_config.bgData) {
+          document.body.style.backgroundImage = `url(${window.g_config.bgData})`;
+          document.body.classList.add('bg-cover', 'bg-center', 'bg-fixed', 'bg-no-repeat');
+      } else {
+          document.body.style.backgroundImage = 'none';
+      }
+
       if(av.id === 'view-admin-list') { 
           window.renderAdminList(); 
           populateTimeSelects();
@@ -560,14 +677,16 @@
     // ----------------------------------------------------------------------
     window.handleLogin = (e) => { e.preventDefault(); const pEl = document.getElementById('login-password'); if (pEl && pEl.value === window.g_config.password) { window.switchView('view-admin-list'); window.showMsg('登入成功'); } else { window.customAlert('密碼錯誤！'); } };
     window.handleLogout = () => window.switchView('view-login');
+    
     window.calcHours = () => { 
-      const dEl = document.getElementById('form-date'); if (!dEl || !dEl.value) return;
-      const sh = document.getElementById('form-start-h'), sm = document.getElementById('form-start-m');
-      const eh = document.getElementById('form-end-h'), em = document.getElementById('form-end-m');
+      const sh = document.getElementById('form-start-h'); const sm = document.getElementById('form-start-m');
+      const eh = document.getElementById('form-end-h'); const em = document.getElementById('form-end-m');
       if(!sh || !sm || !eh || !em) return;
-      const s = new Date(`${dEl.value}T${sh.value}:${sm.value}`); const e = new Date(`${dEl.value}T${eh.value}:${em.value}`);
+      const s = new Date(`2000/01/01 ${sh.value}:${sm.value}`); 
+      let e = new Date(`2000/01/01 ${eh.value}:${em.value}`);
+      if (e < s) e = new Date(`2000/01/02 ${eh.value}:${em.value}`); 
       const hrEl = document.getElementById('form-hours');
-      if(hrEl) hrEl.value = (e > s) ? ((e - s) / 3600000).toFixed(1) : '';
+      if(hrEl) hrEl.value = ((e - s) / 3600000).toFixed(1);
     };
 
     window.resetCourseForm = () => { 
@@ -603,26 +722,206 @@
     window.deleteCourse = async (id) => { window.customConfirm('確定永久刪除此課程？', async () => { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'courses', id)); window.showMsg('✅ 已刪除'); }); };
     window.copyToClipboard = function(t) { const u = (window.g_config.publicUrl || (window.location.origin + window.location.pathname)).replace(/\/$/, '') + `?page=${t}&courseId=${window.g_activeCourseId}`; const ta = document.createElement("textarea"); ta.value = u; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); window.showMsg('✅ 連結已複製'); document.body.removeChild(ta); };
 
+    // ✅ 課程列表依據「開課日期」由近到遠升序排序
     window.renderAdminList = () => {
       const ctn = document.getElementById('course-list-container'); if(!ctn) return;
-      if (window.g_courses.length === 0) { ctn.innerHTML = '<div class="p-10 rounded-2xl text-center border-2 border-dashed border-gray-300">目前尚無課程資料</div>'; return; }
-      ctn.innerHTML = window.g_courses.map(c => `<div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-200 flex flex-col xl:flex-row justify-between items-center hover:shadow-lg transition"><div class="mb-4 xl:mb-0 w-full"><h3 class="text-2xl text-gray-800 mb-2">${c.name}</h3><p class="text-sm text-gray-500">👤 ${c.lecturer} | 📍 ${c.location} | ⏳ ${c.hours}H</p><p class="text-xs text-blue-600 mt-2 bg-blue-50 inline-block px-3 py-1 rounded-md border border-blue-100">${c.startTime.replace('T',' ')} ～ ${c.endTime.split('T')[1]}</p></div><div class="flex flex-wrap gap-2 w-full xl:w-auto mt-3 xl:mt-0"><button type="button" onclick="window.editCourse('${c.id}')" class="bg-yellow-50 text-yellow-700 px-4 py-2 rounded-lg border border-yellow-200 btn-action text-sm">編輯</button><button type="button" onclick="window.deleteCourse('${c.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-lg border border-red-200 btn-action text-sm">刪除</button><button type="button" onclick="window.openManageModal('${c.id}')" class="bg-indigo-600 text-white px-5 py-2 rounded-lg btn-action shadow-md text-sm">👥 名冊</button><button type="button" onclick="window.goToDetail('${c.id}')" class="bg-blue-600 text-white px-5 py-2 rounded-lg btn-action shadow-md text-sm">🎫 邀請/簽到</button></div></div>`).join('');
+      if (window.g_courses.length === 0) { ctn.innerHTML = '<div class="p-10 rounded-2xl text-center border-2 border-dashed border-gray-300 bg-white/80 backdrop-blur-sm">目前尚無課程資料</div>'; return; }
+      
+      const sortedCourses = [...window.g_courses].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+      
+      ctn.innerHTML = sortedCourses.map(c => `<div class="bg-white/95 backdrop-blur-md p-6 rounded-[2rem] shadow-sm border border-gray-200 flex flex-col xl:flex-row justify-between items-center hover:shadow-lg transition"><div class="mb-4 xl:mb-0 w-full"><h3 class="text-2xl text-gray-800 mb-2">${c.name}</h3><p class="text-sm text-gray-500">👤 ${c.lecturer} | 📍 ${c.location} | ⏳ ${c.hours}H</p><p class="text-xs text-blue-600 mt-2 bg-blue-50 inline-block px-3 py-1 rounded-md border border-blue-100">${c.startTime.replace('T',' ')} ～ ${c.endTime.split('T')[1]}</p></div><div class="flex flex-wrap gap-2 w-full xl:w-auto mt-3 xl:mt-0"><button type="button" onclick="window.editCourse('${c.id}')" class="bg-yellow-50 text-yellow-700 px-4 py-2 rounded-lg border border-yellow-200 btn-action text-sm">編輯</button><button type="button" onclick="window.deleteCourse('${c.id}')" class="bg-red-50 text-red-600 px-4 py-2 rounded-lg border border-red-200 btn-action text-sm">刪除</button><button type="button" onclick="window.openManageModal('${c.id}')" class="bg-indigo-600 text-white px-5 py-2 rounded-lg btn-action shadow-md text-sm">👥 名冊</button><button type="button" onclick="window.goToDetail('${c.id}')" class="bg-blue-600 text-white px-5 py-2 rounded-lg btn-action shadow-md text-sm">🎫 邀請/簽到</button></div></div>`).join('');
     };
 
+    // 🖨️ 【核心列印與版面生成區塊：強制靠左對齊、全黑字體、智慧自動分頁與頁碼計算】
     window.renderAdminDetail = () => {
       const c = window.g_courses.find(x => x.id === window.g_activeCourseId); if (!c) return;
       const u = (window.g_config.publicUrl || (window.location.origin + window.location.pathname)).replace(/\/$/, '');
       const enrollUrl = u + '?page=enroll&courseId=' + c.id, signUrl = u + '?page=sign&courseId=' + c.id;
       const actions = document.getElementById('detail-actions-area'); 
       if(actions) { 
-        actions.innerHTML = `<div class="bg-white p-6 rounded-[2rem] shadow-lg border-t-8 border-blue-600 flex flex-col lg:flex-row items-center gap-6"><div class="bg-white p-2 rounded-2xl border shadow-inner shrink-0"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(enrollUrl)}" class="w-28 h-28" /></div><div class="flex-1 w-full text-center lg:text-left"><h3 class="text-xl text-blue-800 mb-2">Step 1: 報名邀請</h3><p class="text-sm text-gray-500 mb-4">發送連結供員工預先報名。</p><div class="flex flex-col sm:flex-row gap-2 w-full"><button type="button" onclick="window.copyToClipboard('enroll')" class="flex-1 bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 shadow-md btn-action text-sm">📋 複製邀請網址</button><button type="button" onclick="window.goToPage('enroll')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 border btn-action text-sm">💻 模擬頁面</button></div></div></div><div class="bg-white p-6 rounded-[2rem] shadow-lg border-t-8 border-green-600 flex flex-col lg:flex-row items-center gap-6"><div class="bg-white p-2 rounded-2xl border shadow-inner shrink-0"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(signUrl)}" class="w-28 h-28" /></div><div class="flex-1 w-full text-center lg:text-left"><h3 class="text-xl text-green-800 mb-2">Step 2: 現場簽到</h3><p class="text-sm text-gray-500 mb-4">現場供員工掃碼簽名。</p><div class="flex flex-col sm:flex-row gap-2 w-full"><button type="button" onclick="window.copyToClipboard('sign')" class="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 shadow-md btn-action text-sm">📋 複製簽到網址</button><button type="button" onclick="window.goToPage('sign')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 border btn-action text-sm">📱 模擬頁面</button></div></div></div>`; 
+        actions.innerHTML = `<div class="bg-white/95 p-6 rounded-[2rem] shadow-lg border-t-8 border-blue-600 flex flex-col lg:flex-row items-center gap-6"><div class="bg-white p-2 rounded-2xl border shadow-inner shrink-0"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(enrollUrl)}" class="w-28 h-28" /></div><div class="flex-1 w-full text-center lg:text-left"><h3 class="text-xl text-blue-800 mb-2">Step 1: 報名邀請</h3><p class="text-sm text-gray-500 mb-4">發送連結供員工預先報名。</p><div class="flex flex-col sm:flex-row gap-2 w-full"><button type="button" onclick="window.copyToClipboard('enroll')" class="flex-1 bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 shadow-md btn-action text-sm">📋 複製邀請網址</button><button type="button" onclick="window.goToPage('enroll')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 border btn-action text-sm">💻 模擬頁面</button></div></div></div><div class="bg-white/95 p-6 rounded-[2rem] shadow-lg border-t-8 border-green-600 flex flex-col lg:flex-row items-center gap-6"><div class="bg-white p-2 rounded-2xl border shadow-inner shrink-0"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(signUrl)}" class="w-28 h-28" /></div><div class="flex-1 w-full text-center lg:text-left"><h3 class="text-xl text-green-800 mb-2">Step 2: 現場簽到</h3><p class="text-sm text-gray-500 mb-4">現場供員工掃碼簽名。</p><div class="flex flex-col sm:flex-row gap-2 w-full"><button type="button" onclick="window.copyToClipboard('sign')" class="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 shadow-md btn-action text-sm">📋 複製簽到網址</button><button type="button" onclick="window.goToPage('sign')" class="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 border btn-action text-sm">📱 模擬頁面</button></div></div></div>`; 
       }
-      let rows = ''; const atts = window.g_records.filter(r => r.courseId === c.id && r.isAttending).sort((a,b) => (a.empId||'').localeCompare(b.empId||''));
-      for(let i=0; i<Math.max(16, atts.length); i++) { const r = atts[i]; rows += `<tr class="h-12 text-center border-b border-black text-[13px]"><td class="border-r border-black px-1">${i+1}</td><td class="border-r border-black px-1">${r?r.dept:''}</td><td class="border-r border-black uppercase px-1">${r?r.empId:''}</td><td class="border-r border-black px-1">${r?r.name:''}</td><td class="border-r border-black p-1">${r&&r.signatureData?`<img src="${r.signatureData}" class="h-10 mx-auto mix-blend-multiply"/>`:''}</td><td class="border-r border-black"></td><td class="border-r border-black"></td><td class=""></td></tr>`; }
-      rows += `<tr class="bg-gray-100 text-center h-12 text-[13px] border-b border-black"><td colspan="2" class="border-r border-black">人數統計</td><td colspan="2" class="border-r border-black">合計 <span class="underline text-lg px-2">${atts.length}</span> 人</td><td colspan="2" class="border-r border-black">合格人數</td><td colspan="2" class="">/</td></tr>`;
-      const h = document.getElementById('print-table-header'), b = document.getElementById('print-table-body');
-      if(h) h.innerHTML = `<tr class="border-b border-black"><td class="border-r border-black px-2 py-2 bg-gray-100 w-24 text-center text-sm">課程名稱</td><td colSpan="7" class="px-3 py-2 text-left text-sm">${c.name}</td></tr><tr class="border-b border-black"><td class="border-r border-black px-2 py-2 bg-gray-100 text-center text-sm">講　　師</td><td colSpan="7" class="px-3 py-2 text-left text-sm">${c.lecturer}</td></tr><tr class="border-b border-black"><td class="border-r border-black px-2 py-2 bg-gray-100 text-center text-sm">上課時間</td><td colSpan="7" class="px-3 py-2 text-left text-sm tracking-wide">${window.formatDate(c.startTime)} ～ (${c.hours}H)</td></tr><tr class="border-b border-black"><td colSpan="8" class="px-2 py-1 bg-gray-200 text-center tracking-[1em] text-sm">參與人員</td></tr><tr class="bg-gray-100 text-center text-[13px] border-b border-black"><td class="border-r border-black py-1.5 w-10">No</td><td class="border-r border-black py-1.5 w-24">部門</td><td class="border-r border-black py-1.5 w-20">工號</td><td class="border-r border-black py-1.5 w-20">姓名</td><td class="border-r border-black py-1.5 w-40">簽到</td><td class="border-r border-black py-1.5 w-16">成績</td><td class="border-r border-black py-1.5 w-16">合格</td><td class="py-1.5 w-20">備註</td></tr>`;
-      if(b) b.innerHTML = rows;
+      
+      const sD = new Date(c.startTime);
+      let eTimeStr = '';
+      if(c.endTime) {
+          const eD = new Date(c.endTime);
+          eTimeStr = `${eD.getFullYear()} 年 ${String(eD.getMonth()+1).padStart(2,'0')} 月 ${String(eD.getDate()).padStart(2,'0')} 日 ${String(eD.getHours()).padStart(2,'0')} 時 ${String(eD.getMinutes()).padStart(2,'0')} 分`;
+      }
+      const timeDisplay = `${sD.getFullYear()} 年 ${String(sD.getMonth()+1).padStart(2,'0')} 月 ${String(sD.getDate()).padStart(2,'0')} 日 ${String(sD.getHours()).padStart(2,'0')} 時 ${String(sD.getMinutes()).padStart(2,'0')} 分 ～ ${eTimeStr}，共 ${c.hours} 小時`;
+
+      const atts = window.g_records.filter(r => r.courseId === c.id && r.isAttending).sort((a,b) => (a.empId||'').localeCompare(b.empId||''));
+      
+      // ✅ 智慧動態分頁引擎
+      const PAGE_MAX_UNITS = 16;
+      let pages = [];
+      let currentPage = [];
+      let currentUnits = 0;
+
+      for (let i = 0; i < atts.length; i++) {
+          const r = atts[i];
+          const deptLen = (r.dept || '').length;
+          const nameLen = (r.name || '').length;
+          let units = Math.max(1, Math.ceil(deptLen / 5), Math.ceil(nameLen / 5));
+          units = Math.min(units, 4);
+
+          if (currentUnits + units > PAGE_MAX_UNITS && currentUnits > 0) {
+              pages.push({ rows: currentPage, totalUnits: currentUnits });
+              currentPage = [];
+              currentUnits = 0;
+          }
+          currentPage.push({ ...r, units: units, originalIndex: i + 1 });
+          currentUnits += units;
+      }
+      if (currentPage.length > 0) {
+          pages.push({ rows: currentPage, totalUnits: currentUnits });
+      }
+      if (pages.length === 0) {
+          pages.push({ rows: [], totalUnits: 0 }); // 即使沒人也要顯示第一頁空表
+      }
+      
+      const pAreaWrapper = document.getElementById('printable-area-wrapper');
+      const logoH = window.g_config.logoHeight || 85;
+
+      let allPagesHtml = '';
+      const totalPages = pages.length;
+
+      // 產生所有動態分頁
+      pages.forEach((pageObj, pageIndex) => {
+        let rowsHtml = ''; 
+        
+        // 渲染實體資料列
+        pageObj.rows.forEach(r => {
+          rowsHtml += `
+          <tr style="height: ${r.units * 32}px;">
+            <td style="border: 1px solid #000;">${r.originalIndex}</td>
+            <td style="border: 1px solid #000; word-break: break-all;">${r.dept || ''}</td>
+            <td style="border: 1px solid #000;"><span style="color: #000; text-decoration: underline;">${r.empId || ''}</span></td>
+            <td style="border: 1px solid #000; word-break: break-all;"><span style="color: #000;">${r.name || ''}</span></td>
+            <td style="border: 1px solid #000; padding: 0;">${r.signatureData ? `<img src="${r.signatureData}" style="height:30px; width:auto; margin:0 auto; mix-blend-mode:multiply;"/>` : ''}</td>
+            <td style="border: 1px solid #000;"></td>
+            <td style="border: 1px solid #000;"></td>
+            <td style="border: 1px solid #000;"></td>
+            <td style="border: 1px solid #000;"></td>
+          </tr>`; 
+        });
+
+        // 智慧填補空白列
+        let filledUnits = pageObj.totalUnits;
+        while (filledUnits < PAGE_MAX_UNITS) {
+            rowsHtml += `
+            <tr style="height: 32px;">
+              <td style="border: 1px solid #000;"></td>
+              <td style="border: 1px solid #000;"></td>
+              <td style="border: 1px solid #000;"></td>
+              <td style="border: 1px solid #000;"></td>
+              <td style="border: 1px solid #000;"></td>
+              <td style="border: 1px solid #000;"></td>
+              <td style="border: 1px solid #000;"></td>
+              <td style="border: 1px solid #000;"></td>
+              <td style="border: 1px solid #000;"></td>
+            </tr>`;
+            filledUnits++;
+        }
+
+        const p = pageIndex + 1;
+        
+        allPagesHtml += `
+           <div class="a4-page" id="printable-area-${p}">
+               <div style="position: relative; z-index: 20; height: 100%; display: flex; flex-direction: column;">
+                 <!-- 角落裁切線 -->
+                 <div class="crop-mark crop-tl"></div>
+                 <div class="crop-mark crop-tr"></div>
+                 <div class="crop-mark crop-bl"></div>
+                 <div class="crop-mark crop-br"></div>
+                 
+                 <!-- 頂部 LOGO 與企業名稱 -->
+                 <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px; position: relative; padding: 0 40px; min-height: ${Math.max(85, logoH)}px;">
+                    <div style="position: absolute; left: 25px; top: 50%; transform: translateY(-50%);">
+                       <img src="${window.g_config.logoData || DEFAULT_LOGO}" style="height: ${logoH}px; max-width: 260px; object-fit: contain;" />
+                    </div>
+                    <div style="text-align: center;">
+                       <div style="font-size: 26px; font-weight: bold; letter-spacing: 6px; font-family: 'PMingLiU', '新細明體', serif; margin-bottom: 4px;">偉勝乾燥工業股份有限公司</div>
+                       <div style="font-size: 16px; letter-spacing: 1px; font-family: 'Times New Roman', serif; color: #333;">WEISUN INDUSTRIAL CO., LTD.</div>
+                    </div>
+                 </div>
+                 
+                 <!-- 標題 -->
+                 <div style="text-align: center; margin-bottom: 12px;">
+                    <h1 style="font-size: 26px; font-weight: bold; letter-spacing: 8px; display: inline-block; font-family: 'DFKai-SB', 'BiauKai', '標楷體', serif !important;">教育訓練學員名冊</h1>
+                 </div>
+                 
+                 <!-- 主要表格 -->
+                 <table class="doc-table">
+                    <tr>
+                      <td colspan="2" style="width: 15%; font-weight: bold;">課程名稱</td>
+                      <td colspan="7" style="text-align: left !important; padding-left: 15px !important;">${c.name}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="2" style="font-weight: bold;">講　　師</td>
+                      <td colspan="7" style="text-align: left !important; padding-left: 15px !important;">${c.lecturer}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="2" style="font-weight: bold;">上課時間</td>
+                      <td colspan="7" style="text-align: left !important; padding-left: 15px !important;">${timeDisplay}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="2" style="font-weight: bold;">上課地點</td>
+                      <td colspan="7" style="text-align: left !important; padding-left: 15px !important;">${c.location || ''}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="9" style="font-weight: bold; letter-spacing: 2em; padding-left: 2em; height: 28px;">參與人員</td>
+                    </tr>
+                    <tr>
+                      <td rowspan="2" style="width: 5%;">No</td>
+                      <td rowspan="2" style="width: 12%;">部門</td>
+                      <td rowspan="2" style="width: 12%;"><span style="color: #000;">工號</span></td>
+                      <td rowspan="2" style="width: 12%;"><span style="color: #000;">姓名</span></td>
+                      <td rowspan="2" style="width: 23%;">簽到</td>
+                      <td colspan="2" style="width: 16%; color: #000;">成績</td>
+                      <td rowspan="2" style="width: 8%; line-height: 1.2;">合格<br>(Y/N)</td>
+                      <td rowspan="2" style="width: 12%;">備註</td>
+                    </tr>
+                    <tr>
+                      <td style="color: #000;">(一)</td>
+                      <td style="color: #000;">(二)</td>
+                    </tr>
+                    ${rowsHtml}
+                 </table>
+
+                 <!-- 底部統計表格 -->
+                 <table class="doc-table" style="border-top: none; margin-top: 10px;">
+                   <tr>
+                     <td style="width: 17%; color: #000; font-weight: bold;">參 加 人 數</td>
+                     <td style="width: 17%; color: #000; font-weight: bold;">合 格 人 數</td>
+                     <td style="width: 16.5%; color: #000; font-weight: bold;">平均成績一</td>
+                     <td style="width: 16.5%; color: #000; font-weight: bold;">平均成績二</td>
+                     <td style="width: 16.5%; color: #000; font-weight: bold;">加權平均</td>
+                     <td style="width: 16.5%; color: #000; font-weight: bold;">頁碼</td>
+                   </tr>
+                   <tr>
+                     <td style="color: #000; font-weight: bold;">合計 <span style="display:inline-block; width:30px; text-align:center; color:#000;">${atts.length}</span> 人</td>
+                     <td style="color: #000; font-weight: bold;">合計 <span style="display:inline-block; width:30px;"></span> 人</td>
+                     <td></td>
+                     <td></td>
+                     <td></td>
+                     <!-- ✅ 智慧產生目前頁碼與總頁數 -->
+                     <td style="color: #000; font-weight: bold;"> ${p} / ${totalPages} </td>
+                   </tr>
+                 </table>
+
+                 <!-- 右下角單號 -->
+                 <div style="text-align: right; margin-top: 6px; font-size: 13px; font-family: 'Times New Roman', serif; color: #333;">
+                    ${window.g_config.formVersion || 'QP-02-02-D'}
+                 </div>
+               </div>
+           </div>
+        `;
+      });
+      
+      if(pAreaWrapper) { 
+         pAreaWrapper.innerHTML = `<div id="printable-area" style="width: 100%; background: transparent;">${allPagesHtml}</div>`; 
+      }
     };
 
     // ----------------------------------------------------------------------
@@ -632,11 +931,31 @@
       const m = document.getElementById('settings-modal'); if(!m) return;
       if(s) {
         const u = document.getElementById('setting-url'), p = document.getElementById('setting-pass'), d = document.getElementById('setting-departments'), r = document.getElementById('setting-meeting-rooms'), mD = document.getElementById('master-dept'), l = document.getElementById('setting-logo-preview');
+        const fv = document.getElementById('setting-form-version');
+        const ls = document.getElementById('setting-logo-size');
+        const lsv = document.getElementById('logo-size-val');
+        const bgp = document.getElementById('setting-bg-preview');
+        const bgn = document.getElementById('setting-bg-none');
+        
         if(u) u.value = window.g_config.publicUrl || ''; if(p) p.value = ''; 
         if(d) d.value = (window.g_config.departments || []).join('\n');
         if(r) r.value = (window.g_config.meetingRooms || []).join('\n');
         if(mD) mD.innerHTML = '<option value="">選擇部門</option>' + (window.g_config.departments || []).map(dp => `<option value="${dp}">${dp}</option>`).join('');
         if(l) l.src = window.g_config.logoData || DEFAULT_LOGO;
+        if(fv) fv.value = window.g_config.formVersion || 'QP-02-02-D';
+        
+        const currentLogoH = window.g_config.logoHeight || 85;
+        if(ls) ls.value = currentLogoH;
+        if(lsv) lsv.innerText = currentLogoH;
+
+        if(window.g_config.bgData) {
+           if(bgp) { bgp.src = window.g_config.bgData; bgp.classList.remove('hidden'); }
+           if(bgn) bgn.classList.add('hidden');
+        } else {
+           if(bgp) { bgp.src = ''; bgp.classList.add('hidden'); }
+           if(bgn) bgn.classList.remove('hidden');
+        }
+
         window.resetMasterForm(); window.renderMasterTable(); m.classList.remove('hidden');
       } else m.classList.add('hidden');
     };
@@ -706,13 +1025,80 @@
       });
       window.g_config.employees = emps.sort((a,b) => String(a.empId).localeCompare(String(b.empId))); txtArea.value = ''; window.renderMasterTable(); await window.syncConfigToCloud(); window.showMsg('✅ 已同步更新');
     };
-    window.handleLogoUpload = function(e) { const f = e.target.files[0]; if(!f) return; const r = new FileReader(); r.onload = function(ev) { const img = new Image(); img.onload = function() { const cvs = document.createElement('canvas'); const MAX = 300; const s = MAX / img.width; cvs.width = MAX; cvs.height = img.height * s; const ctx = cvs.getContext('2d'); ctx.fillStyle = '#FFF'; ctx.fillRect(0,0,cvs.width,cvs.height); ctx.drawImage(img, 0, 0, cvs.width, cvs.height); window.g_config.logoData = cvs.toDataURL('image/jpeg', 0.9); const p = document.getElementById('setting-logo-preview'); if(p) p.src = window.g_config.logoData; }; img.src = ev.target.result; }; r.readAsDataURL(f); };
+    
+    // ✅ LOGO 上傳 (存成純淨透明 PNG)
+    window.handleLogoUpload = function(e) { 
+      const f = e.target.files[0]; if(!f) return; 
+      const r = new FileReader(); 
+      r.onload = function(ev) { 
+        const img = new Image(); 
+        img.onload = function() { 
+          const cvs = document.createElement('canvas'); 
+          const MAX = 400; 
+          const s = MAX / img.width; 
+          cvs.width = MAX; 
+          cvs.height = img.height * s; 
+          const ctx = cvs.getContext('2d'); 
+          ctx.clearRect(0,0,cvs.width,cvs.height); 
+          ctx.drawImage(img, 0, 0, cvs.width, cvs.height); 
+          window.g_config.logoData = cvs.toDataURL('image/png'); 
+          const p = document.getElementById('setting-logo-preview'); 
+          if(p) p.src = window.g_config.logoData; 
+        }; 
+        img.src = ev.target.result; 
+      }; 
+      r.readAsDataURL(f); 
+    };
+
+    // ✅ 系統背景底圖上傳邏輯
+    window.handleBgUpload = function(e) { 
+      const f = e.target.files[0]; if(!f) return; 
+      const r = new FileReader(); 
+      r.onload = function(ev) { 
+        const img = new Image();
+        img.onload = function() {
+          const cvs = document.createElement('canvas');
+          let w = img.width, h = img.height;
+          const MAX_DIM = 1000; 
+          if (w > MAX_DIM || h > MAX_DIM) {
+              if (w > h) { h *= MAX_DIM / w; w = MAX_DIM; }
+              else { w *= MAX_DIM / h; h = MAX_DIM; }
+          }
+          cvs.width = w; cvs.height = h;
+          const ctx = cvs.getContext('2d');
+          ctx.fillStyle = '#FFF'; ctx.fillRect(0,0,w,h);
+          ctx.drawImage(img, 0, 0, w, h);
+          window.g_config.bgData = cvs.toDataURL('image/jpeg', 0.8); 
+          const p = document.getElementById('setting-bg-preview'); 
+          const n = document.getElementById('setting-bg-none');
+          if(p) { p.src = window.g_config.bgData; p.classList.remove('hidden'); }
+          if(n) n.classList.add('hidden');
+        };
+        img.src = ev.target.result;
+      }; 
+      r.readAsDataURL(f); 
+    };
+    window.clearBgUpload = function() {
+      window.g_config.bgData = '';
+      const p = document.getElementById('setting-bg-preview'); 
+      const n = document.getElementById('setting-bg-none');
+      if(p) { p.src = ''; p.classList.add('hidden'); }
+      if(n) n.classList.remove('hidden');
+      window.showMsg('✅ 底圖已清除');
+    };
+
     window.saveSettings = async function() { 
       const d = document.getElementById('setting-departments'), r = document.getElementById('setting-meeting-rooms'), u = document.getElementById('setting-url'), p = document.getElementById('setting-pass');
+      const fv = document.getElementById('setting-form-version');
+      const ls = document.getElementById('setting-logo-size');
+      
       if(d) window.g_config.departments = d.value.split('\n').map(x=>x.trim()).filter(x=>x); 
       if(r) window.g_config.meetingRooms = r.value.split('\n').map(x=>x.trim()).filter(x=>x);
       if(u) window.g_config.publicUrl = u.value;
       if(p && p.value) window.g_config.password = p.value;
+      if(fv) window.g_config.formVersion = fv.value.trim() || 'QP-02-02-D';
+      if(ls) window.g_config.logoHeight = parseInt(ls.value, 10) || 85;
+      
       await window.syncConfigToCloud(); window.showMsg('✅ 設定同步成功'); window.toggleSettings(false); 
     };
     window.exportMasterCSV = function() { let c = '\uFEFF工號,姓名,部門\n'; (window.g_config.employees||[]).forEach(e => c+=`"${e.empId}","${e.name}","${e.dept}"\n`); const b = new Blob([c], {type:'text/csv;charset=utf-8;'}); const l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = "全員主檔案.csv"; l.click(); };
@@ -721,7 +1107,6 @@
     // ✅ 步驟七：名冊管理與報名簽到邏輯
     // ----------------------------------------------------------------------
     
-    // --- 新增：名單管理區的 CSV 匯出與匯入 ---
     window.handleCourseCSVExport = function() {
         const c = window.g_courses.find(x => x.id === window.g_activeCourseId);
         const cName = c ? c.name : '未知課程';
@@ -748,12 +1133,9 @@
             
             lines.forEach(line => {
                 const cols = line.split(',').map(x => x.trim().replace(/^"|"$/g, ''));
-                // 假設第一欄是工號
                 if (cols.length >= 1 && cols[0] && !cols[0].includes('工號')) {
                     const eid = String(cols[0]).toUpperCase();
-                    // 檢查是否已經在本次名單中
                     if (!window.g_courseManageAttendees.find(a => String(a.empId).trim() === eid)) {
-                        // 從全公司主檔案撈取資料，確保資料一致性
                         const mE = (window.g_config.employees || []).find(x => String(x.empId).trim() === eid);
                         if (mE) {
                             window.g_courseManageAttendees.push({
@@ -775,7 +1157,7 @@
             
             window.g_courseManageAttendees.sort((a,b) => String(a.empId).localeCompare(String(b.empId)));
             window.renderCourseManageTable();
-            event.target.value = ''; // 清空 file input，以便下次選同一個檔案時能再次觸發
+            event.target.value = '';
             
             let msg = `✅ 成功匯入 ${addedCount} 筆資料`;
             if (notFoundCount > 0) msg += ` (略過 ${notFoundCount} 筆未建檔工號)`;
@@ -783,7 +1165,6 @@
         };
         reader.readAsText(file);
     };
-    // ------------------------------------------
 
     window.handleManageEmpIdInput = function(e) {
       const eid = e.target.value.trim().toUpperCase();
@@ -874,7 +1255,7 @@
       const targetId = ex ? ex.id : window.generateId();
       const rBtn = document.querySelector('input[name="isAttending"]:checked');
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', targetId), { id: targetId, courseId: window.g_activeCourseId, dept: dp, empId: eid, name: nm, isAttending: rBtn ? (rBtn.value==='Y') : true, signatureData: ex?ex.signatureData:null });
-      window.switchView('view-enroll-success');
+      window.switchView('view-success-page'); // ✅ 強制導向全新乾淨的成功頁面
     };
 
     window.renderSignList = function() {
@@ -899,7 +1280,6 @@
         const scEl = document.getElementById('signed-count'); if(scEl) scEl.innerText = `${sgn.length} 人`; 
         const sl = document.getElementById('signed-list'); 
         
-        // 將原本的純文字標籤改為可點擊的按鈕，點擊後一樣呼叫 startSign 來編輯舊簽名
         if(sl) sl.innerHTML = (sgn.length === 0) ? '<span class="text-sm text-gray-400">尚未有人簽到</span>' : 
             sgn.map(r => `<button type="button" onclick="window.startSign('${r.id}', '${r.name}')" class="bg-green-50 text-green-700 text-xs px-3 py-1.5 rounded-md border border-green-200 hover:bg-green-100 hover:border-green-300 btn-action flex items-center gap-1 shadow-sm transition"><span>${r.name}</span><span class="text-green-500 bg-white rounded-full w-4 h-4 flex items-center justify-center border border-green-200" title="修改簽名">✎</span></button>`).join(''); 
       } 
@@ -922,41 +1302,30 @@
     window.initSignaturePad = function() {
         const cvsEl = document.getElementById('sig-canvas'); if (!cvsEl) return;
         sigCvs = cvsEl; sigCtx = sigCvs.getContext('2d');
-        sigCtx.lineWidth = 3; sigCtx.lineCap = 'round'; sigCtx.lineJoin = 'round'; sigCtx.strokeStyle = '#000';
+        sigCtx.lineWidth = 3; sigCtx.lineCap = 'round'; sigCtx.lineJoin = 'round'; 
+        sigCtx.strokeStyle = '#000000'; // 強制黑筆
         
-        window.clearCanvas(); // 先填滿背景色
+        window.clearCanvas();
 
-        // 如果該員原本就已經有簽名 (編輯模式)，則將舊簽名畫上去
         const r = window.g_records.find(x => x.id === window.g_signingRecordId);
         if (r && r.signatureData) {
             const img = new Image();
             img.onload = () => {
                 sigCtx.drawImage(img, 0, 0);
-                sigHistoryLog = [sigCvs.toDataURL()]; // 將載入的舊簽名設為歷史紀錄的起點
-                const b = document.getElementById('btn-undo'); if(b) b.disabled = true;
             };
             img.src = r.signatureData;
         }
 
-        const getP = e => { const r = sigCvs.getBoundingClientRect(), cX = (e.touches ? e.touches[0].clientX : e.clientX), cY = (e.touches ? e.touches[0].clientY : e.clientY); return { x: cX - r.left, y: cY - r.top }; };
+        const getP = e => { const rect = sigCvs.getBoundingClientRect(), cX = (e.touches ? e.touches[0].clientX : e.clientX), cY = (e.touches ? e.touches[0].clientY : e.clientY); return { x: cX - rect.left, y: cY - rect.top }; };
         sigCvs.onmousedown = sigCvs.ontouchstart = e => { e.preventDefault(); isDrawingSign = true; const p = getP(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); };
         sigCvs.onmousemove = sigCvs.ontouchmove = e => { e.preventDefault(); if(!isDrawingSign) return; const p = getP(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); };
-        sigCvs.onmouseup = sigCvs.ontouchend = e => { e.preventDefault(); if(isDrawingSign){ sigCtx.closePath(); isDrawingSign=false; sigHistoryLog.push(sigCvs.toDataURL()); const b = document.getElementById('btn-undo'); if(b) b.disabled = false; } };
+        sigCvs.onmouseup = sigCvs.ontouchend = e => { e.preventDefault(); if(isDrawingSign){ sigCtx.closePath(); isDrawingSign=false; } };
     };
     
     window.clearCanvas = () => { 
         if(!sigCtx || !sigCvs) return; 
-        sigCtx.fillStyle = '#f9fafb'; sigCtx.fillRect(0,0,sigCvs.width,sigCvs.height); 
-        sigHistoryLog = [sigCvs.toDataURL()]; 
-        const b = document.getElementById('btn-undo'); if(b) b.disabled = true; 
-    };
-    
-    window.undoCanvas = () => { 
-        if(sigHistoryLog.length <= 1) return; 
-        sigHistoryLog.pop(); 
-        const img = new Image(); img.src = sigHistoryLog[sigHistoryLog.length-1]; 
-        img.onload = () => { sigCtx.clearRect(0,0,sigCvs.width,sigCvs.height); sigCtx.drawImage(img,0,0); }; 
-        if(sigHistoryLog.length<=1) { const b = document.getElementById('btn-undo'); if(b) b.disabled=true; } 
+        sigCtx.fillStyle = '#f9fafb'; 
+        sigCtx.fillRect(0,0,sigCvs.width,sigCvs.height); 
     };
 
     window.saveSignature = async () => { 
@@ -964,26 +1333,21 @@
         const r = window.g_records.find(x => x.id === window.g_signingRecordId); 
         if(!r) return;
 
-        // 產生一個全白的基準畫布來比對是否為空畫布
         const bCvs = document.createElement('canvas'); bCvs.width = sigCvs.width; bCvs.height = sigCvs.height;
         const bCtx = bCvs.getContext('2d'); bCtx.fillStyle = '#f9fafb'; bCtx.fillRect(0,0,bCvs.width,bCvs.height);
         
         const isBlank = (sigCvs.toDataURL() === bCvs.toDataURL());
 
         if (isBlank) {
-            // 如果目前畫布是空白的...
             if (r.signatureData) {
-                // 狀況 A: 他原本有簽名，但他按了清除，然後點擊確認送出 -> 詢問是否要取消簽到
                 window.customConfirm('您清除了簽名，確定要將此學員設為「未簽到」嗎？', async () => {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r, signatureData: null }); 
                     window.showMsg('✅ 已取消簽到'); window.cancelSign();
                 });
             } else {
-                // 狀況 B: 新來的人，什麼都沒畫就按送出 -> 提示錯誤
                 window.customAlert('請先在畫布上簽名！');
             }
         } else {
-            // 有畫東西，正常存檔
             const dataUrl = sigCvs.toDataURL('image/png');
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'records', r.id), { ...r, signatureData: dataUrl }); 
             window.showMsg('✅ 簽到完成'); window.cancelSign(); 
